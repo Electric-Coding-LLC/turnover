@@ -3,7 +3,7 @@
 | # | Step | Done |
 |---|------|------|
 | 1 | [Define app purpose and core features](steps/1-purpose.md) | x |
-| 2 | Set up Git repo | |
+| 2 | [Set up Git repo](steps/2-git-repo.md) | x |
 | 3 | Configure dev environment | |
 | 4 | Create Xcode project | |
 | 5 | Design data model | |

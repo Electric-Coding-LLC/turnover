@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+echo "Verifying bootstrap docs and repo scaffolding..."
+
+test -f README.md
+test -f .gitignore
+test -f AGENTS.md
+test -f CLAUDE.md
+test -f docs/plan.md
+test -f docs/steps/1-purpose.md
+test -f docs/steps/2-git-repo.md
+
+git diff --check
+
+echo "Verification passed."
