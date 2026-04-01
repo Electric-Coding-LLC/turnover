@@ -111,3 +111,13 @@ Replace the in-memory Step 8 adapters with local persistence and platform-backed
 - Permission and availability handling is explicit enough to implement without leaking framework concerns into the view layer
 - The plan explicitly covers how platform status changes propagate into app state after the initial load
 - The plan leaves testing, simulator/device validation, and bug-fixing work for Steps 10 and 11 without ambiguity
+
+## Outcome
+
+- Replaced the in-memory Step 8 adapters with local production dependency assembly for settings, run history, finalized-run writes, and platform status
+- Added local JSON persistence for `SettingsSnapshot` and completed run data so settings and history survive app relaunch
+- Wired a persisted settings update path through `TurnoverAppState` so settings changes made in the app are saved and reloaded
+- Replaced mock tracking with a Core Location-backed `RunTrackingService` that feeds `RunTrackingSnapshot`
+- Surfaced real platform authorization and availability state through `RunPlatformStatusProviding` with refresh propagation back into app state
+- Ensured finished runs are written durably before history and metrics are refreshed
+- Added unit coverage for persisted startup loading, durable history writes, and persisted settings updates, plus a UI test for settings persistence across relaunch
