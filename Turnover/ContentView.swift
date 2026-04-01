@@ -73,7 +73,10 @@ struct ContentView: View {
             .tag(TurnoverTab.history)
 
             NavigationStack {
-                SettingsScreen(settings: appState.settings)
+                SettingsScreen(
+                    settings: appState.settings,
+                    onUpdateSettings: appState.updateSettings
+                )
                 .tabItem {
                     Label("Settings", systemImage: "slider.horizontal.3")
                 }

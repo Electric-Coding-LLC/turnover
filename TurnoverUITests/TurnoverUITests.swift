@@ -8,25 +8,62 @@
 import XCTest
 
 final class TurnoverUITests: XCTestCase {
+    private var persistenceDirectory: URL!
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
+        persistenceDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try? FileManager.default.removeItem(at: persistenceDirectory)
+        try FileManager.default.createDirectory(at: persistenceDirectory, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+        if let persistenceDirectory {
+            try? FileManager.default.removeItem(at: persistenceDirectory)
+        }
     }
 
     @MainActor
     func testExample() throws {
-        let app = XCUIApplication()
+        let app = makeApp()
         app.launch()
 
         XCTAssertTrue(app.buttons["start-run-button"].waitForExistence(timeout: 2))
+    }
+
+    @MainActor
+    func testSettingsPersistAcrossRelaunch() throws {
+        let app = makeApp()
+        app.launch()
+
+        openSettingsTab(in: app)
+
+        let distanceControl = app.segmentedControls["settings-distance-unit"]
+        XCTAssertTrue(distanceControl.waitForExistence(timeout: 2))
+
+        let milesButton = distanceControl.buttons["Miles"]
+        XCTAssertTrue(milesButton.exists)
+        milesButton.tap()
+        XCTAssertTrue(milesButton.isSelected)
+
+        app.terminate()
+        app.launch()
+        openSettingsTab(in: app)
+
+        let relaunchedDistanceControl = app.segmentedControls["settings-distance-unit"]
+        XCTAssertTrue(relaunchedDistanceControl.waitForExistence(timeout: 2))
+        XCTAssertTrue(relaunchedDistanceControl.buttons["Miles"].isSelected)
+    }
+
+    private func makeApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TURNOVER_BASE_DIRECTORY"] = persistenceDirectory.path
+        return app
+    }
+
+    private func openSettingsTab(in app: XCUIApplication) {
+        let settingsTab = app.tabBars.buttons.element(boundBy: 3)
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 2))
+        settingsTab.tap()
     }
 }

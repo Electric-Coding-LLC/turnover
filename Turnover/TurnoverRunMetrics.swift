@@ -85,6 +85,8 @@ protocol RunMetricsCalculating {
 }
 
 struct DefaultRunMetricsCalculator: RunMetricsCalculating {
+    nonisolated init() {}
+
     func splitSummaries(for session: ActiveRunSession) -> [SplitSummary] {
         let splitCount = max(1, Int(session.snapshot.distanceMeters / session.settings.splitUnit.distanceMeters))
 

@@ -393,12 +393,31 @@ struct RunDetailScreen: View {
 
 struct SettingsScreen: View {
     let settings: SettingsSnapshot
+    let onUpdateSettings: (SettingsSnapshot) -> Void
 
     var body: some View {
         TurnoverScreen(title: "Settings") {
             SectionCard(title: "Units") {
-                SettingsRow(label: "Distance Unit", value: settings.distanceUnitLabel)
-                SettingsRow(label: "Split Unit", value: settings.splitUnitLabel)
+                PickerRow(
+                    label: "Distance Unit",
+                    identifier: "settings-distance-unit",
+                    selection: settings.distanceUnit,
+                    values: [.kilometers, .miles],
+                    title: \.label,
+                    onSelect: { selection in
+                        onUpdateSettings(settings.updating(distanceUnit: selection))
+                    }
+                )
+                PickerRow(
+                    label: "Split Unit",
+                    identifier: "settings-split-unit",
+                    selection: settings.splitUnit,
+                    values: [.kilometer, .mile],
+                    title: \.label,
+                    onSelect: { selection in
+                        onUpdateSettings(settings.updating(splitUnit: selection))
+                    }
+                )
             }
 
             SectionCard(title: "Run Behavior") {
@@ -406,14 +425,31 @@ struct SettingsScreen: View {
                     Text("Auto-Pause")
                         .foregroundStyle(TurnoverPalette.textPrimary)
                     Spacer()
-                    Text(settings.autoPauseEnabled ? "On" : "Off")
-                        .foregroundStyle(settings.autoPauseEnabled ? TurnoverPalette.accent : TurnoverPalette.textSecondary)
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.autoPauseEnabled },
+                            set: { onUpdateSettings(settings.updating(autoPauseEnabled: $0)) }
+                        )
+                    )
+                    .labelsHidden()
+                    .tint(TurnoverPalette.accent)
+                    .accessibilityIdentifier("settings-auto-pause-toggle")
                 }
             }
 
             SectionCard(title: "Heart Rate") {
                 SettingsRow(label: "Zone Method", value: settings.zoneMethodLabel)
-                SettingsRow(label: "Max Heart Rate", value: settings.maxHeartRateLabel)
+                StepperRow(
+                    label: "Max Heart Rate",
+                    identifier: "settings-max-heart-rate",
+                    value: settings.maxHeartRate,
+                    range: 120...230,
+                    suffix: "bpm",
+                    onChange: { selection in
+                        onUpdateSettings(settings.updating(maxHeartRate: selection))
+                    }
+                )
             }
 
             SectionCard(title: "About") {
@@ -421,6 +457,53 @@ struct SettingsScreen: View {
                 SettingsRow(label: "Version", value: settings.version)
             }
         }
+    }
+}
+
+private struct PickerRow<Value: Hashable>: View {
+    let label: String
+    let identifier: String
+    let selection: Value
+    let values: [Value]
+    let title: KeyPath<Value, String>
+    let onSelect: (Value) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(label)
+                .foregroundStyle(TurnoverPalette.textPrimary)
+
+            Picker(label, selection: Binding(get: { selection }, set: onSelect)) {
+                ForEach(values, id: \.self) { value in
+                    Text(value[keyPath: title]).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier(identifier)
+        }
+    }
+}
+
+private struct StepperRow: View {
+    let label: String
+    let identifier: String
+    let value: Int
+    let range: ClosedRange<Int>
+    let suffix: String
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        Stepper(value: Binding(get: { value }, set: onChange), in: range) {
+            HStack {
+                Text(label)
+                    .foregroundStyle(TurnoverPalette.textPrimary)
+                Spacer()
+                Text("\(value) \(suffix)")
+                    .foregroundStyle(TurnoverPalette.textSecondary)
+            }
+        }
+        .tint(TurnoverPalette.accent)
+        .accessibilityIdentifier(identifier)
     }
 }
 
@@ -634,6 +717,6 @@ struct RoutePreview: View {
 }
 
 #Preview("Settings") {
-    SettingsScreen(settings: TurnoverSampleData.settings)
+    SettingsScreen(settings: TurnoverSampleData.settings, onUpdateSettings: { _ in })
         .preferredColorScheme(.dark)
 }

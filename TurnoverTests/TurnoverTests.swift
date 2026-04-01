@@ -25,6 +25,7 @@ struct TurnoverTests {
             summaryBuilder: summaryBuilder,
             runHistory: historyStore.readRunHistory(),
             platformStatusProvider: platformStatusProvider,
+            settingsWriter: InMemorySettingsStore(settings: TurnoverSampleData.settings),
             historyReader: historyStore,
             finalizedRunWriter: historyStore
         )
@@ -54,6 +55,7 @@ struct TurnoverTests {
             summaryBuilder: StubRunSummaryBuilder(),
             runHistory: historyStore.readRunHistory(),
             platformStatusProvider: platformStatusProvider,
+            settingsWriter: InMemorySettingsStore(settings: TurnoverSampleData.settings),
             historyReader: historyStore,
             finalizedRunWriter: historyStore
         )
@@ -173,6 +175,7 @@ struct TurnoverTests {
             summaryBuilder: StubRunSummaryBuilder(),
             runHistory: historyStore.readRunHistory(),
             platformStatusProvider: platformStatusProvider,
+            settingsWriter: InMemorySettingsStore(settings: TurnoverSampleData.settings),
             historyReader: historyStore,
             finalizedRunWriter: historyStore
         )
@@ -213,6 +216,7 @@ struct TurnoverTests {
             summaryBuilder: StubRunSummaryBuilder(),
             runHistory: historyStore.readRunHistory(),
             platformStatusProvider: platformStatusProvider,
+            settingsWriter: InMemorySettingsStore(settings: TurnoverSampleData.settings),
             historyReader: historyStore,
             finalizedRunWriter: historyStore
         )
@@ -259,6 +263,40 @@ struct TurnoverTests {
         #expect(appState.latestCompletedRun?.title == "Built Run")
         #expect(appState.historyMetrics.runCount == TurnoverSampleData.recentRuns.count + 1)
         #expect(appState.historyMetrics.latestRunDistanceMeters == 5_000)
+    }
+
+    @Test func appStateUpdatesSettingsPersistsThemAndRefreshesMetrics() async throws {
+        let directory = makeTemporaryDirectory()
+        let appState = TurnoverAppState(
+            dependencies: TurnoverAppDependencies.local(
+                baseDirectory: directory,
+                trackingService: StubRunTrackingService(snapshot: .running),
+                platformStatusProvider: StubRunPlatformStatusProvider()
+            )
+        )
+
+        let updatedSettings = appState.settings.updating(
+            distanceUnit: .miles,
+            splitUnit: .mile,
+            autoPauseEnabled: false,
+            maxHeartRate: 184
+        )
+
+        appState.updateSettings(updatedSettings)
+
+        #expect(appState.settings == updatedSettings)
+        #expect(appState.historyMetrics.preferredDistanceUnit == .miles)
+
+        let reloadedAppState = TurnoverAppState(
+            dependencies: TurnoverAppDependencies.local(
+                baseDirectory: directory,
+                trackingService: StubRunTrackingService(snapshot: .running),
+                platformStatusProvider: StubRunPlatformStatusProvider()
+            )
+        )
+
+        #expect(reloadedAppState.settings == updatedSettings)
+        #expect(reloadedAppState.historyMetrics.preferredDistanceUnit == .miles)
     }
 
     @Test func appStateFinishingRunPersistsHistoryBeforeMetricsRefresh() async throws {

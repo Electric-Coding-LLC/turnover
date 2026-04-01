@@ -23,12 +23,12 @@ final class TurnoverAppState: ObservableObject {
     @Published private(set) var runHistory: [RunSummary]
     @Published private(set) var historyMetrics: RunHistoryMetrics
     @Published private(set) var platformStatus: RunPlatformStatus
-
-    let settings: SettingsSnapshot
+    @Published private(set) var settings: SettingsSnapshot
 
     private let trackingService: any RunTrackingService
     private let metricsCalculator: any RunMetricsCalculating
     private let summaryBuilder: any RunSummaryBuilding
+    private let settingsWriter: any RunSettingsWriting
     private let historyReader: any RunHistoryReading
     private let finalizedRunWriter: any FinalizedRunWriting
     private let platformStatusProvider: any RunPlatformStatusProviding
@@ -40,6 +40,7 @@ final class TurnoverAppState: ObservableObject {
         summaryBuilder: any RunSummaryBuilding,
         runHistory: [RunSummary],
         platformStatusProvider: any RunPlatformStatusProviding,
+        settingsWriter: any RunSettingsWriting,
         historyReader: any RunHistoryReading,
         finalizedRunWriter: any FinalizedRunWriting
     ) {
@@ -47,6 +48,7 @@ final class TurnoverAppState: ObservableObject {
         self.trackingService = trackingService
         self.metricsCalculator = metricsCalculator
         self.summaryBuilder = summaryBuilder
+        self.settingsWriter = settingsWriter
         self.runHistory = runHistory
         self.latestCompletedRun = runHistory.first
         self.historyMetrics = metricsCalculator.summarizeHistory(runHistory, using: settings.runSettings, now: Date())
@@ -81,6 +83,7 @@ final class TurnoverAppState: ObservableObject {
             summaryBuilder: DefaultRunSummaryBuilder(metricsCalculator: metricsCalculator),
             runHistory: dependencies.historyReader.readRunHistory(),
             platformStatusProvider: dependencies.platformStatusProvider,
+            settingsWriter: dependencies.settingsWriter,
             historyReader: dependencies.historyReader,
             finalizedRunWriter: dependencies.finalizedRunWriter
         )
@@ -163,6 +166,14 @@ final class TurnoverAppState: ObservableObject {
 
     func refreshPlatformStatus() {
         platformStatusProvider.refreshPlatformStatus()
+    }
+
+    func updateSettings(_ settings: SettingsSnapshot) {
+        guard settings != self.settings else { return }
+
+        self.settings = settings
+        settingsWriter.writeSettings(settings)
+        historyMetrics = metricsCalculator.summarizeHistory(runHistory, using: settings.runSettings, now: Date())
     }
 
     func openPlatformSettings() {

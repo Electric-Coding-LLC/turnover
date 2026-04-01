@@ -78,6 +78,7 @@ protocol RunPlatformStatusProviding: AnyObject {
 
 struct TurnoverAppDependencies {
     let settingsReader: any RunSettingsReading
+    let settingsWriter: any RunSettingsWriting
     let historyReader: any RunHistoryReading
     let finalizedRunWriter: any FinalizedRunWriting
     let trackingService: any RunTrackingService
@@ -89,14 +90,16 @@ struct TurnoverAppDependencies {
         trackingService: (any RunTrackingService)? = nil,
         platformStatusProvider: (any RunPlatformStatusProviding)? = nil
     ) -> TurnoverAppDependencies {
-        let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: baseDirectory)
-        let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: baseDirectory)
+        let resolvedBaseDirectory = baseDirectory ?? persistenceBaseDirectoryOverride()
+        let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: resolvedBaseDirectory)
+        let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: resolvedBaseDirectory)
         let platformAdapter = CoreLocationRunTrackingService()
         let resolvedTrackingService = trackingService ?? platformAdapter
         let resolvedPlatformStatusProvider = platformStatusProvider ?? platformAdapter
 
         return TurnoverAppDependencies(
             settingsReader: settingsStore,
+            settingsWriter: settingsStore,
             historyReader: historyStore,
             finalizedRunWriter: historyStore,
             trackingService: resolvedTrackingService,
@@ -105,27 +108,41 @@ struct TurnoverAppDependencies {
     }
 
     static func inMemory() -> TurnoverAppDependencies {
+        let settingsStore = InMemorySettingsStore(settings: TurnoverSampleData.settings)
         let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
         let platformStatusProvider = MockRunPlatformStatusProvider()
 
         return TurnoverAppDependencies(
-            settingsReader: InMemorySettingsStore(settings: TurnoverSampleData.settings),
+            settingsReader: settingsStore,
+            settingsWriter: settingsStore,
             historyReader: historyStore,
             finalizedRunWriter: historyStore,
             trackingService: MockRunTrackingService(),
             platformStatusProvider: platformStatusProvider
         )
     }
+
+    private static func persistenceBaseDirectoryOverride() -> URL? {
+        let environment = ProcessInfo.processInfo.environment
+        guard let path = environment["TURNOVER_BASE_DIRECTORY"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
 }
 
-struct InMemorySettingsStore: RunSettingsReading, RunSettingsWriting {
-    let settings: SettingsSnapshot
+final class InMemorySettingsStore: RunSettingsReading, RunSettingsWriting {
+    private var settings: SettingsSnapshot
+
+    init(settings: SettingsSnapshot) {
+        self.settings = settings
+    }
 
     func readSettings() -> SettingsSnapshot {
         settings
     }
 
-    func writeSettings(_ settings: SettingsSnapshot) {}
+    func writeSettings(_ settings: SettingsSnapshot) {
+        self.settings = settings
+    }
 }
 
 final class InMemoryRunHistoryStore: RunHistoryReading, FinalizedRunWriting {
