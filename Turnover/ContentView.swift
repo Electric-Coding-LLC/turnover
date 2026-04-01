@@ -8,10 +8,15 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var appState = TurnoverAppState()
+    @StateObject private var appState: TurnoverAppState
     @State private var homePath: [RunSummary] = []
     @State private var historyPath: [RunSummary] = []
     @State private var runPath: [RunDestination] = []
+
+    @MainActor
+    init(appState: TurnoverAppState? = nil) {
+        _appState = StateObject(wrappedValue: appState ?? TurnoverAppState())
+    }
 
     var body: some View {
         TabView(selection: $appState.selectedTab) {
@@ -101,5 +106,5 @@ private enum RunDestination: Hashable {
 }
 
 #Preview {
-    ContentView()
+    ContentView(appState: TurnoverAppState.preview())
 }

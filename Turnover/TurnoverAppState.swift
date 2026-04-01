@@ -61,11 +61,28 @@ final class TurnoverAppState: ObservableObject {
     }
 
     convenience init() {
-        let dependencies = TurnoverAppDependencies.inMemory()
+        let dependencies = TurnoverAppDependencies.local()
         let settings = dependencies.settingsReader.readSettings()
         let metricsCalculator = DefaultRunMetricsCalculator()
 
         self.init(
+            settings: settings,
+            trackingService: MockRunTrackingService(),
+            metricsCalculator: metricsCalculator,
+            summaryBuilder: DefaultRunSummaryBuilder(metricsCalculator: metricsCalculator),
+            runHistory: dependencies.historyReader.readRunHistory(),
+            platformStatus: dependencies.platformStatusProvider.currentPlatformStatus(),
+            historyReader: dependencies.historyReader,
+            finalizedRunWriter: dependencies.finalizedRunWriter
+        )
+    }
+
+    static func preview() -> TurnoverAppState {
+        let dependencies = TurnoverAppDependencies.inMemory()
+        let settings = dependencies.settingsReader.readSettings()
+        let metricsCalculator = DefaultRunMetricsCalculator()
+
+        return TurnoverAppState(
             settings: settings,
             trackingService: MockRunTrackingService(),
             metricsCalculator: metricsCalculator,

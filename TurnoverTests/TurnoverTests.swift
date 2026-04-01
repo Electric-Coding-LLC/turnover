@@ -90,6 +90,69 @@ struct TurnoverTests {
         #expect(metrics.latestRunDistanceMeters == 8_420)
         #expect(metrics.personalRecords.map(\.label) == ["Mile", "5K"])
     }
+
+    @Test func localSettingsStoreReadsSeedAndPersistsWrites() async throws {
+        let directory = makeTemporaryDirectory()
+        let store = LocalSettingsStore(baseDirectory: directory)
+
+        #expect(store.readSettings().distanceUnit == .kilometers)
+
+        let updatedSettings = SettingsSnapshot(
+            distanceUnit: .miles,
+            splitUnit: .mile,
+            autoPauseEnabled: false,
+            zoneMethod: .percentOfMaxHeartRate,
+            maxHeartRate: 185,
+            version: "0.1.1"
+        )
+
+        store.writeSettings(updatedSettings)
+
+        let reloadedStore = LocalSettingsStore(baseDirectory: directory)
+        let reloadedSettings = reloadedStore.readSettings()
+
+        #expect(reloadedSettings.distanceUnit == .miles)
+        #expect(reloadedSettings.splitUnit == .mile)
+        #expect(reloadedSettings.autoPauseEnabled == false)
+        #expect(reloadedSettings.maxHeartRate == 185)
+        #expect(reloadedSettings.version == "0.1.1")
+    }
+
+    @Test func localRunHistoryStoreSeedsAndPersistsFinishedRuns() async throws {
+        let directory = makeTemporaryDirectory()
+        let store = LocalRunHistoryStore(baseDirectory: directory)
+
+        #expect(store.readRunHistory().count == TurnoverSampleData.recentRuns.count)
+
+        let newRun = StubRunSummaryBuilder().makeSummary(
+            from: ActiveRunSession(
+                id: UUID(),
+                startedAt: Date(timeIntervalSince1970: 42),
+                settings: TurnoverSampleData.settings.runSettings,
+                snapshot: .finished
+            ),
+            history: []
+        )
+
+        store.writeFinalizedRun(
+            FinalizedRunPayload(
+                session: ActiveRunSession(
+                    id: newRun.id,
+                    startedAt: newRun.startedAt,
+                    settings: TurnoverSampleData.settings.runSettings,
+                    snapshot: .finished
+                ),
+                summary: newRun
+            )
+        )
+
+        let reloadedStore = LocalRunHistoryStore(baseDirectory: directory)
+        let persistedHistory = reloadedStore.readRunHistory()
+
+        #expect(persistedHistory.count == TurnoverSampleData.recentRuns.count + 1)
+        #expect(persistedHistory.first?.title == "Built Run")
+        #expect(persistedHistory.first?.distanceMeters == 5_000)
+    }
 }
 
 private final class StubRunTrackingService: RunTrackingService {
@@ -164,4 +227,10 @@ private extension RunTrackingSnapshot {
         elevationGainMeters: 52,
         routeShape: [0.2, 0.3, 0.4, 0.5]
     )
+}
+
+private func makeTemporaryDirectory() -> URL {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
 }

@@ -48,6 +48,10 @@ protocol RunSettingsReading {
     func readSettings() -> SettingsSnapshot
 }
 
+protocol RunSettingsWriting {
+    func writeSettings(_ settings: SettingsSnapshot)
+}
+
 protocol RunHistoryReading {
     func readRunHistory() -> [RunSummary]
 }
@@ -66,6 +70,18 @@ struct TurnoverAppDependencies {
     let finalizedRunWriter: any FinalizedRunWriting
     let platformStatusProvider: any RunPlatformStatusProviding
 
+    static func local(fileManager: FileManager = .default) -> TurnoverAppDependencies {
+        let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: nil)
+        let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: nil)
+
+        return TurnoverAppDependencies(
+            settingsReader: settingsStore,
+            historyReader: historyStore,
+            finalizedRunWriter: historyStore,
+            platformStatusProvider: MockRunPlatformStatusProvider()
+        )
+    }
+
     static func inMemory() -> TurnoverAppDependencies {
         let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
 
@@ -78,12 +94,14 @@ struct TurnoverAppDependencies {
     }
 }
 
-struct InMemorySettingsStore: RunSettingsReading {
+struct InMemorySettingsStore: RunSettingsReading, RunSettingsWriting {
     let settings: SettingsSnapshot
 
     func readSettings() -> SettingsSnapshot {
         settings
     }
+
+    func writeSettings(_ settings: SettingsSnapshot) {}
 }
 
 final class InMemoryRunHistoryStore: RunHistoryReading, FinalizedRunWriting {
