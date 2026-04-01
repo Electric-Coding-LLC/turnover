@@ -173,6 +173,10 @@ final class TurnoverAppState: ObservableObject {
         platformStatusProvider.refreshPlatformStatus()
     }
 
+    func openPlatformSettings() {
+        platformStatusProvider.openSystemSettings()
+    }
+
     private func handle(snapshot: RunTrackingSnapshot) {
         switch runSession {
         case .active(let session):

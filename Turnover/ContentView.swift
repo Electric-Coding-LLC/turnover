@@ -46,7 +46,8 @@ struct ContentView: View {
                     onPauseRun: appState.pauseRun,
                     onResumeRun: appState.resumeRun,
                     onFinishRun: finishRun,
-                    onViewLatestRun: showLatestCompletedRun
+                    onViewLatestRun: showLatestCompletedRun,
+                    onOpenSettings: appState.openPlatformSettings
                 )
                 .navigationDestination(for: RunDestination.self) { destination in
                     switch destination {

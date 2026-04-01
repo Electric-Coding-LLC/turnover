@@ -89,6 +89,7 @@ struct LiveRunScreen: View {
     let onResumeRun: () -> Void
     let onFinishRun: () -> Void
     let onViewLatestRun: () -> Void
+    let onOpenSettings: () -> Void
 
     var body: some View {
         TurnoverScreen(title: "Live Run") {
@@ -112,19 +113,23 @@ struct LiveRunScreen: View {
     }
 
     private var idleRunContent: some View {
-        HeroSectionCard(
-            eyebrow: "Ready",
-            title: "Start a session from here or jump in from Home.",
-            subtitle: "Step 7 wires the run flow so the tab, session state, and summary route all behave like one app."
-        ) {
-            Button("Start Run", action: onStartRun)
-                .buttonStyle(PrimaryButtonStyle())
+        Group {
+            HeroSectionCard(
+                eyebrow: "Ready",
+                title: "Start a session from here or jump in from Home.",
+                subtitle: "Step 7 wires the run flow so the tab, session state, and summary route all behave like one app."
+            ) {
+                Button("Start Run", action: onStartRun)
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+
+            permissionRecoveryCard
         }
     }
 
     private func activeRunContent(session: ActiveRunSession, isPaused: Bool) -> some View {
         Group {
-            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: settings.autoPauseEnabled ? "Auto-pause ready" : platformStatus.liveStatusLabel) {
+            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: platformStatus.liveStatusLabel) {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(DefaultRunSummaryBuilder.durationString(seconds: session.snapshot.elapsedSeconds))
                         .font(.system(size: 52, weight: .bold, design: .rounded))
@@ -189,6 +194,8 @@ struct LiveRunScreen: View {
                     }
                 }
             }
+
+            permissionRecoveryCard
         }
     }
 
@@ -236,6 +243,22 @@ struct LiveRunScreen: View {
     private func paceValue(secondsPerSplit: Double?) -> String {
         guard let secondsPerSplit else { return "--" }
         return DefaultRunSummaryBuilder.compactDurationString(seconds: Int(secondsPerSplit.rounded()))
+    }
+
+    @ViewBuilder
+    private var permissionRecoveryCard: some View {
+        if platformStatus.canOpenSettings {
+            SectionCard(title: "Permissions", trailing: "Location") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Location access is denied. Open Settings to re-enable GPS tracking for live runs.")
+                        .font(.subheadline)
+                        .foregroundStyle(TurnoverPalette.textSecondary)
+
+                    Button("Open Settings", action: onOpenSettings)
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+            }
+        }
     }
 }
 
@@ -580,7 +603,8 @@ struct RoutePreview: View {
         onPauseRun: {},
         onResumeRun: {},
         onFinishRun: {},
-        onViewLatestRun: {}
+        onViewLatestRun: {},
+        onOpenSettings: {}
     )
         .preferredColorScheme(.dark)
 }

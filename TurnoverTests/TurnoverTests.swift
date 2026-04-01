@@ -195,6 +195,90 @@ struct TurnoverTests {
 
         #expect(platformStatusProvider.refreshCallCount == 1)
     }
+
+    @Test func appStateOpensPlatformSettingsThroughProvider() async throws {
+        let trackingService = StubRunTrackingService(snapshot: .running)
+        let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+        let platformStatusProvider = StubRunPlatformStatusProvider(
+            status: RunPlatformStatus(
+                trackingAuthorization: .denied,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            )
+        )
+        let appState = TurnoverAppState(
+            settings: TurnoverSampleData.settings,
+            trackingService: trackingService,
+            metricsCalculator: DefaultRunMetricsCalculator(),
+            summaryBuilder: StubRunSummaryBuilder(),
+            runHistory: historyStore.readRunHistory(),
+            platformStatusProvider: platformStatusProvider,
+            historyReader: historyStore,
+            finalizedRunWriter: historyStore
+        )
+
+        appState.openPlatformSettings()
+
+        #expect(platformStatusProvider.openSettingsCallCount == 1)
+    }
+
+    @Test func runPlatformStatusLiveStatusLabelReflectsAvailabilityAndPermissions() async throws {
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .authorized,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            ).liveStatusLabel == "GPS ready, HR unavailable"
+        )
+
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .authorized,
+                trackingAvailability: .available,
+                heartRateAvailability: .available
+            ).liveStatusLabel == "GPS + HR ready"
+        )
+
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .notDetermined,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            ).liveStatusLabel == "Permissions pending"
+        )
+
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .denied,
+                trackingAvailability: .available,
+                heartRateAvailability: .available
+            ).liveStatusLabel == "Location denied"
+        )
+
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .authorized,
+                trackingAvailability: .unavailable,
+                heartRateAvailability: .available
+            ).liveStatusLabel == "Tracking unavailable"
+        )
+
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .denied,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            ).canOpenSettings
+        )
+
+        #expect(
+            RunPlatformStatus(
+                trackingAuthorization: .authorized,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            ).canOpenSettings == false
+        )
+    }
 }
 
 private final class StubRunTrackingService: RunTrackingService {
@@ -229,6 +313,7 @@ private final class StubRunPlatformStatusProvider: RunPlatformStatusProviding {
     var onStatusChange: ((RunPlatformStatus) -> Void)?
 
     private(set) var refreshCallCount = 0
+    private(set) var openSettingsCallCount = 0
     private var status: RunPlatformStatus
 
     init(
@@ -248,6 +333,10 @@ private final class StubRunPlatformStatusProvider: RunPlatformStatusProviding {
     func refreshPlatformStatus() {
         refreshCallCount += 1
         onStatusChange?(status)
+    }
+
+    func openSystemSettings() {
+        openSettingsCallCount += 1
     }
 
     func updateStatus(_ status: RunPlatformStatus) {

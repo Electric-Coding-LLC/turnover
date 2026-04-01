@@ -7,6 +7,7 @@
 
 import CoreLocation
 import Foundation
+import UIKit
 
 final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPlatformStatusProviding {
     var latestSnapshot: RunTrackingSnapshot?
@@ -55,6 +56,15 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
 
     func refreshPlatformStatus() {
         onStatusChange?(currentPlatformStatus())
+    }
+
+    func openSystemSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else {
+            assertionFailure("UIApplication.openSettingsURLString produced an invalid URL")
+            return
+        }
+
+        UIApplication.shared.open(settingsURL)
     }
 
     func start(settings: RunSettings, startedAt: Date) {

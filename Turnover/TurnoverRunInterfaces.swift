@@ -23,6 +23,10 @@ struct RunPlatformStatus: Equatable {
     let trackingAvailability: PlatformAvailabilityState
     let heartRateAvailability: PlatformAvailabilityState
 
+    var canOpenSettings: Bool {
+        trackingAuthorization == .denied
+    }
+
     var liveStatusLabel: String {
         if trackingAvailability == .unavailable {
             return "Tracking unavailable"
@@ -30,7 +34,11 @@ struct RunPlatformStatus: Equatable {
 
         switch trackingAuthorization {
         case .authorized:
-            return "GPS ready"
+            if heartRateAvailability == .available {
+                return "GPS + HR ready"
+            }
+
+            return "GPS ready, HR unavailable"
         case .notDetermined:
             return "Permissions pending"
         case .denied:
@@ -65,6 +73,7 @@ protocol RunPlatformStatusProviding: AnyObject {
 
     func currentPlatformStatus() -> RunPlatformStatus
     func refreshPlatformStatus()
+    func openSystemSettings()
 }
 
 struct TurnoverAppDependencies {
@@ -138,7 +147,7 @@ final class MockRunPlatformStatusProvider: RunPlatformStatusProviding {
         status: RunPlatformStatus = RunPlatformStatus(
             trackingAuthorization: .authorized,
             trackingAvailability: .available,
-            heartRateAvailability: .available
+            heartRateAvailability: .unavailable
         )
     ) {
         self.status = status
@@ -151,4 +160,6 @@ final class MockRunPlatformStatusProvider: RunPlatformStatusProviding {
     func refreshPlatformStatus() {
         onStatusChange?(status)
     }
+
+    func openSystemSettings() {}
 }
