@@ -17,7 +17,8 @@ struct ContentView: View {
         TabView(selection: $appState.selectedTab) {
             NavigationStack(path: $homePath) {
                 HomeScreen(
-                    featuredRun: appState.runHistory.first ?? TurnoverSampleData.featuredRun,
+                    featuredRun: appState.runHistory.first,
+                    historyMetrics: appState.historyMetrics,
                     onStartRun: startRun
                 )
                     .navigationDestination(for: RunSummary.self) { run in
@@ -34,6 +35,7 @@ struct ContentView: View {
                     runSession: appState.runSession,
                     latestCompletedRun: appState.latestCompletedRun,
                     settings: appState.settings,
+                    platformStatus: appState.platformStatus,
                     onStartRun: startRun,
                     onPauseRun: appState.pauseRun,
                     onResumeRun: appState.resumeRun,
@@ -53,7 +55,7 @@ struct ContentView: View {
             .tag(TurnoverTab.run)
 
             NavigationStack(path: $historyPath) {
-                HistoryScreen(runs: appState.runHistory)
+                HistoryScreen(runs: appState.runHistory, historyMetrics: appState.historyMetrics)
                     .navigationDestination(for: RunSummary.self) { run in
                         RunDetailScreen(run: run)
                     }

@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct HomeScreen: View {
-    let featuredRun: RunSummary
+    let featuredRun: RunSummary?
+    let historyMetrics: RunHistoryMetrics
     let onStartRun: () -> Void
 
     var body: some View {
@@ -23,48 +24,55 @@ struct HomeScreen: View {
                     .accessibilityIdentifier("start-run-button")
 
                 HStack(spacing: 12) {
-                    MetricColumn(label: "Week", value: "30.4 km")
-                    MetricColumn(label: "Month", value: "112 km")
-                    MetricColumn(label: "Latest", value: "8.42 km")
+                    MetricColumn(label: "Week", value: historyMetrics.weeklyDistanceSummary)
+                    MetricColumn(label: "Month", value: historyMetrics.monthlyDistanceSummary)
+                    MetricColumn(label: "Latest", value: historyMetrics.latestRunDistanceSummary)
                 }
             }
 
             SectionCard(title: "This Week", trailing: "7 days") {
                 HStack(spacing: 12) {
-                    MetricTile(label: "Mileage", value: "30.4", detail: "km logged", emphasis: .subdued)
-                    MetricTile(label: "Month", value: "112", detail: "km total", emphasis: .subdued)
+                    MetricTile(label: "Mileage", value: historyMetrics.weeklyDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) logged", emphasis: .subdued)
+                    MetricTile(label: "Month", value: historyMetrics.monthlyDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) total", emphasis: .subdued)
                 }
 
                 HStack(spacing: 12) {
-                    MetricTile(label: "Latest", value: "8.42", detail: "km tempo", accent: TurnoverPalette.success, emphasis: .subdued)
-                    MetricTile(label: "PRs", value: "2", detail: "updated", accent: TurnoverPalette.warning, emphasis: .subdued)
+                    MetricTile(label: "Latest", value: historyMetrics.latestRunDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) latest", accent: TurnoverPalette.success, emphasis: .subdued)
+                    MetricTile(label: "PRs", value: "\(historyMetrics.personalRecordCount)", detail: "tagged runs", accent: TurnoverPalette.warning, emphasis: .subdued)
                 }
             }
 
-            NavigationLink(value: featuredRun) {
-                SectionCard(title: "Latest Run", trailing: featuredRun.date) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text(featuredRun.title)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(TurnoverPalette.textPrimary)
+            if let featuredRun {
+                NavigationLink(value: featuredRun) {
+                    SectionCard(title: "Latest Run", trailing: featuredRun.date) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text(featuredRun.title)
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(TurnoverPalette.textPrimary)
 
-                        RoutePreview(shape: featuredRun.routeShape)
-                            .frame(height: 88)
+                            RoutePreview(shape: featuredRun.routeShape)
+                                .frame(height: 88)
 
-                        HStack(spacing: 12) {
-                            MetricColumn(label: "Distance", value: featuredRun.distance)
-                            MetricColumn(label: "Pace", value: featuredRun.averagePace)
-                            MetricColumn(label: "Time", value: featuredRun.movingTime)
+                            HStack(spacing: 12) {
+                                MetricColumn(label: "Distance", value: featuredRun.distance)
+                                MetricColumn(label: "Pace", value: featuredRun.averagePace)
+                                MetricColumn(label: "Time", value: featuredRun.movingTime)
+                            }
                         }
                     }
                 }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             SectionCard(title: "Personal Records", trailing: "V1") {
                 VStack(spacing: 12) {
-                    RecordRow(label: "Mile", value: "6:01", detail: "Mar 21")
-                    RecordRow(label: "5K", value: "21:12", detail: "Mar 12")
+                    ForEach(historyMetrics.personalRecords) { record in
+                        RecordRow(
+                            label: record.label,
+                            value: DefaultRunSummaryBuilder.durationString(seconds: record.durationSeconds),
+                            detail: record.achievedOn
+                        )
+                    }
                 }
             }
         }
@@ -75,6 +83,7 @@ struct LiveRunScreen: View {
     let runSession: RunSessionState
     let latestCompletedRun: RunSummary?
     let settings: SettingsSnapshot
+    let platformStatus: RunPlatformStatus
     let onStartRun: () -> Void
     let onPauseRun: () -> Void
     let onResumeRun: () -> Void
@@ -115,7 +124,7 @@ struct LiveRunScreen: View {
 
     private func activeRunContent(session: ActiveRunSession, isPaused: Bool) -> some View {
         Group {
-            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: settings.autoPauseEnabled ? "Auto-pause ready" : "GPS strong") {
+            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: settings.autoPauseEnabled ? "Auto-pause ready" : platformStatus.liveStatusLabel) {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(DefaultRunSummaryBuilder.durationString(seconds: session.snapshot.elapsedSeconds))
                         .font(.system(size: 52, weight: .bold, design: .rounded))
@@ -232,13 +241,14 @@ struct LiveRunScreen: View {
 
 struct HistoryScreen: View {
     let runs: [RunSummary]
+    let historyMetrics: RunHistoryMetrics
 
     var body: some View {
         TurnoverScreen(title: "History") {
             SectionCard(title: "Summary", trailing: "Recent") {
                 HStack(spacing: 12) {
-                    MetricTile(label: "Runs", value: "\(runs.count)", detail: "sample sessions")
-                    MetricTile(label: "Mileage", value: "30.4", detail: "km this week")
+                    MetricTile(label: "Runs", value: "\(historyMetrics.runCount)", detail: "completed sessions")
+                    MetricTile(label: "Mileage", value: historyMetrics.weeklyDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) this week")
                 }
             }
 
@@ -528,7 +538,15 @@ struct RoutePreview: View {
 
 #Preview("Home") {
     NavigationStack {
-        HomeScreen(featuredRun: TurnoverSampleData.featuredRun, onStartRun: {})
+        HomeScreen(
+            featuredRun: TurnoverSampleData.featuredRun,
+            historyMetrics: DefaultRunMetricsCalculator().summarizeHistory(
+                TurnoverSampleData.recentRuns,
+                using: TurnoverSampleData.settings.runSettings,
+                now: TurnoverSampleData.featuredRun.startedAt
+            ),
+            onStartRun: {}
+        )
             .navigationDestination(for: RunSummary.self) { run in
                 RunDetailScreen(run: run)
             }
@@ -557,6 +575,7 @@ struct RoutePreview: View {
         ),
         latestCompletedRun: TurnoverSampleData.featuredRun,
         settings: TurnoverSampleData.settings,
+        platformStatus: MockRunPlatformStatusProvider().currentPlatformStatus(),
         onStartRun: {},
         onPauseRun: {},
         onResumeRun: {},
@@ -568,7 +587,14 @@ struct RoutePreview: View {
 
 #Preview("History") {
     NavigationStack {
-        HistoryScreen(runs: TurnoverSampleData.recentRuns)
+        HistoryScreen(
+            runs: TurnoverSampleData.recentRuns,
+            historyMetrics: DefaultRunMetricsCalculator().summarizeHistory(
+                TurnoverSampleData.recentRuns,
+                using: TurnoverSampleData.settings.runSettings,
+                now: TurnoverSampleData.featuredRun.startedAt
+            )
+        )
             .navigationDestination(for: RunSummary.self) { run in
                 RunDetailScreen(run: run)
             }

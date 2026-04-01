@@ -9,7 +9,7 @@
 | 5 | [Set up capabilities and entitlements](steps/5-capabilities.md) | x |
 | 6 | [Build core SwiftUI screens](steps/6-swiftui-screens.md) | x |
 | 7 | [Wire navigation and state flow](steps/7-navigation-state-flow.md) | x |
-| 8 | [Implement business logic and services](steps/8-business-logic-services.md) | |
+| 8 | [Implement business logic and services](steps/8-business-logic-services.md) | x |
 | 9 | Integrate storage and platform APIs | |
 | 10 | Test on simulator and device | |
 | 11 | Fix bugs and optimize | |

@@ -21,23 +21,37 @@ final class TurnoverAppState: ObservableObject {
     @Published private(set) var runSession: RunSessionState = .idle
     @Published private(set) var latestCompletedRun: RunSummary?
     @Published private(set) var runHistory: [RunSummary]
+    @Published private(set) var historyMetrics: RunHistoryMetrics
 
     let settings: SettingsSnapshot
+    let platformStatus: RunPlatformStatus
 
     private let trackingService: RunTrackingService
+    private let metricsCalculator: any RunMetricsCalculating
     private let summaryBuilder: any RunSummaryBuilding
+    private let historyReader: any RunHistoryReading
+    private let finalizedRunWriter: any FinalizedRunWriting
 
     init(
         settings: SettingsSnapshot,
         trackingService: RunTrackingService,
+        metricsCalculator: any RunMetricsCalculating,
         summaryBuilder: any RunSummaryBuilding,
-        runHistory: [RunSummary]
+        runHistory: [RunSummary],
+        platformStatus: RunPlatformStatus,
+        historyReader: any RunHistoryReading,
+        finalizedRunWriter: any FinalizedRunWriting
     ) {
         self.settings = settings
         self.trackingService = trackingService
+        self.metricsCalculator = metricsCalculator
         self.summaryBuilder = summaryBuilder
         self.runHistory = runHistory
         self.latestCompletedRun = runHistory.first
+        self.historyMetrics = metricsCalculator.summarizeHistory(runHistory, using: settings.runSettings, now: Date())
+        self.platformStatus = platformStatus
+        self.historyReader = historyReader
+        self.finalizedRunWriter = finalizedRunWriter
 
         trackingService.onSnapshot = { [weak self] snapshot in
             Task { @MainActor [weak self] in
@@ -47,11 +61,19 @@ final class TurnoverAppState: ObservableObject {
     }
 
     convenience init() {
+        let dependencies = TurnoverAppDependencies.inMemory()
+        let settings = dependencies.settingsReader.readSettings()
+        let metricsCalculator = DefaultRunMetricsCalculator()
+
         self.init(
-            settings: TurnoverSampleData.settings,
+            settings: settings,
             trackingService: MockRunTrackingService(),
-            summaryBuilder: DefaultRunSummaryBuilder(),
-            runHistory: TurnoverSampleData.recentRuns
+            metricsCalculator: metricsCalculator,
+            summaryBuilder: DefaultRunSummaryBuilder(metricsCalculator: metricsCalculator),
+            runHistory: dependencies.historyReader.readRunHistory(),
+            platformStatus: dependencies.platformStatusProvider.currentPlatformStatus(),
+            historyReader: dependencies.historyReader,
+            finalizedRunWriter: dependencies.finalizedRunWriter
         )
     }
 
@@ -112,10 +134,12 @@ final class TurnoverAppState: ObservableObject {
             snapshot: trackingService.latestSnapshot ?? session.snapshot
         )
         let run = summaryBuilder.makeSummary(from: finalizedSession, history: runHistory)
-
-        runHistory.insert(run, at: 0)
+        let payload = FinalizedRunPayload(session: finalizedSession, summary: run)
+        finalizedRunWriter.writeFinalizedRun(payload)
+        runHistory = historyReader.readRunHistory()
         latestCompletedRun = run
         runSession = .completed(run)
+        historyMetrics = metricsCalculator.summarizeHistory(runHistory, using: settings.runSettings, now: Date())
         selectedTab = .run
     }
 

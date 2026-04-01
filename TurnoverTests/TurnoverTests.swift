@@ -15,11 +15,17 @@ struct TurnoverTests {
     @Test func appStateFinishesRunIntoCompletedSummary() async throws {
         let trackingService = StubRunTrackingService(snapshot: .finished)
         let summaryBuilder = StubRunSummaryBuilder()
+        let metricsCalculator = DefaultRunMetricsCalculator()
+        let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
         let appState = TurnoverAppState(
             settings: TurnoverSampleData.settings,
             trackingService: trackingService,
+            metricsCalculator: metricsCalculator,
             summaryBuilder: summaryBuilder,
-            runHistory: TurnoverSampleData.recentRuns
+            runHistory: historyStore.readRunHistory(),
+            platformStatus: MockRunPlatformStatusProvider().currentPlatformStatus(),
+            historyReader: historyStore,
+            finalizedRunWriter: historyStore
         )
 
         appState.startRun()
@@ -38,11 +44,16 @@ struct TurnoverTests {
 
     @Test func appStatePausesAndResumesActiveSession() async throws {
         let trackingService = StubRunTrackingService(snapshot: .running)
+        let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
         let appState = TurnoverAppState(
             settings: TurnoverSampleData.settings,
             trackingService: trackingService,
+            metricsCalculator: DefaultRunMetricsCalculator(),
             summaryBuilder: StubRunSummaryBuilder(),
-            runHistory: TurnoverSampleData.recentRuns
+            runHistory: historyStore.readRunHistory(),
+            platformStatus: MockRunPlatformStatusProvider().currentPlatformStatus(),
+            historyReader: historyStore,
+            finalizedRunWriter: historyStore
         )
 
         appState.startRun()
@@ -65,6 +76,20 @@ struct TurnoverTests {
         #expect(trackingService.resumeCallCount == 1)
     }
 
+    @Test func historyMetricsSummarizeRecentRunsAndRecords() async throws {
+        let metrics = DefaultRunMetricsCalculator().summarizeHistory(
+            TurnoverSampleData.recentRuns,
+            using: TurnoverSampleData.settings.runSettings,
+            now: TurnoverSampleData.featuredRun.startedAt
+        )
+
+        #expect(metrics.runCount == 3)
+        #expect(metrics.personalRecordCount == 2)
+        #expect(metrics.weeklyDistanceMeters == 13_560)
+        #expect(metrics.monthlyDistanceMeters == 30_360)
+        #expect(metrics.latestRunDistanceMeters == 8_420)
+        #expect(metrics.personalRecords.map(\.label) == ["Mile", "5K"])
+    }
 }
 
 private final class StubRunTrackingService: RunTrackingService {
@@ -98,14 +123,17 @@ private final class StubRunTrackingService: RunTrackingService {
 private struct StubRunSummaryBuilder: RunSummaryBuilding {
     func makeSummary(from session: ActiveRunSession, history: [RunSummary]) -> RunSummary {
         RunSummary(
+            id: session.id,
             title: "Built Run",
-            date: "Tue, Mar 31",
-            distance: "5.00 km",
-            movingTime: "25:00",
-            elapsedTime: "25:10",
-            averagePace: "5'00\" /km",
-            averageHeartRate: "160 bpm",
-            elevationGain: "50 m",
+            startedAt: Date(timeIntervalSince1970: 0),
+            distanceMeters: 5_000,
+            movingTimeSeconds: 1_500,
+            elapsedTimeSeconds: 1_510,
+            averagePaceSecondsPerSplit: 300,
+            averageHeartRateBPM: 160,
+            elevationGainMeters: 50,
+            distanceUnit: .kilometers,
+            splitUnit: .kilometer,
             routeShape: session.snapshot.routeShape,
             splits: [],
             heartRateZones: [],

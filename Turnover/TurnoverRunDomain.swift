@@ -205,87 +205,39 @@ final class MockRunTrackingService: RunTrackingService {
 }
 
 struct DefaultRunSummaryBuilder: RunSummaryBuilding {
+    private let metricsCalculator: any RunMetricsCalculating
+
+    init(metricsCalculator: any RunMetricsCalculating = DefaultRunMetricsCalculator()) {
+        self.metricsCalculator = metricsCalculator
+    }
+
     func makeSummary(from session: ActiveRunSession, history: [RunSummary]) -> RunSummary {
         let snapshot = session.snapshot
-        let splitCount = max(1, Int(snapshot.distanceMeters / session.settings.splitUnit.distanceMeters))
-        let splits = buildSplits(for: session, count: splitCount)
-        let heartRateZones = buildHeartRateZones(from: snapshot)
-        let personalRecord = projectedPersonalRecord(for: snapshot, settings: session.settings, history: history)
+        let splits = metricsCalculator.splitSummaries(for: session)
+        let heartRateZones = metricsCalculator.heartRateZones(from: snapshot, settings: session.settings)
+        let personalRecord = metricsCalculator.projectedPersonalRecord(
+            for: snapshot,
+            settings: session.settings,
+            history: history
+        )
 
         return RunSummary(
+            id: session.id,
             title: generatedTitle(for: snapshot.distanceMeters),
-            date: Self.dateFormatter.string(from: session.startedAt),
-            distance: Self.distanceString(meters: snapshot.distanceMeters, unit: session.settings.distanceUnit),
-            movingTime: Self.durationString(seconds: snapshot.movingSeconds),
-            elapsedTime: Self.durationString(seconds: snapshot.elapsedSeconds),
-            averagePace: Self.paceString(secondsPerSplit: snapshot.averagePaceSecondsPerSplit, splitUnit: session.settings.splitUnit),
-            averageHeartRate: snapshot.heartRate.map { "\($0) bpm" } ?? "N/A",
-            elevationGain: "\(Int(snapshot.elevationGainMeters.rounded())) m",
+            startedAt: session.startedAt,
+            distanceMeters: snapshot.distanceMeters,
+            movingTimeSeconds: snapshot.movingSeconds,
+            elapsedTimeSeconds: snapshot.elapsedSeconds,
+            averagePaceSecondsPerSplit: snapshot.averagePaceSecondsPerSplit,
+            averageHeartRateBPM: snapshot.heartRate,
+            elevationGainMeters: snapshot.elevationGainMeters,
+            distanceUnit: session.settings.distanceUnit,
+            splitUnit: session.settings.splitUnit,
             routeShape: snapshot.routeShape,
             splits: splits,
             heartRateZones: heartRateZones,
             personalRecord: personalRecord
         )
-    }
-
-    private func buildSplits(for session: ActiveRunSession, count: Int) -> [SplitSummary] {
-        (0..<count).map { index in
-            let paceDelta = Double(index) * 1.8
-            let pace = max((session.snapshot.averagePaceSecondsPerSplit ?? 0) - paceDelta, 240)
-            let heartRate = max((session.snapshot.heartRate ?? 150) + index * 2 - 2, 130)
-
-            return SplitSummary(
-                label: "\(index + 1) \(session.settings.splitUnit == .kilometer ? "km" : "mi")",
-                pace: Self.compactDurationString(seconds: Int(pace.rounded())),
-                heartRate: "\(heartRate)"
-            )
-        }
-    }
-
-    private func buildHeartRateZones(from snapshot: RunTrackingSnapshot) -> [HeartRateZoneSummary] {
-        let fractions = [0.12, 0.23, 0.34, 0.21, 0.10]
-
-        return fractions.enumerated().map { index, fraction in
-            HeartRateZoneSummary(
-                label: "Z\(index + 1)",
-                duration: Self.durationString(seconds: Int(Double(snapshot.movingSeconds) * fraction)),
-                fraction: fraction
-            )
-        }
-    }
-
-    private func projectedPersonalRecord(for snapshot: RunTrackingSnapshot, settings: RunSettings, history: [RunSummary]) -> String? {
-        let projected5KSeconds = projectedTime(targetMeters: 5_000, snapshot: snapshot)
-        guard let projected5KSeconds else { return nil }
-
-        let historical5KBest = history
-            .filter { $0.distance.hasSuffix("km") }
-            .compactMap { run -> Int? in
-                guard let distance = Self.parseDistanceKilometers(from: run.distance),
-                      distance >= 5.0 else {
-                    return nil
-                }
-
-                return Self.parseDuration(from: run.movingTime).map { Int(Double($0) * (5.0 / distance)) }
-            }
-            .min()
-
-        guard let historical5KBest else { return "New 5K best projection" }
-
-        if projected5KSeconds < historical5KBest {
-            return "New 5K best projection"
-        }
-
-        if settings.autoPauseEnabled, snapshot.distanceMeters >= 3_000 {
-            return "Strong negative split trend"
-        }
-
-        return nil
-    }
-
-    private func projectedTime(targetMeters: Double, snapshot: RunTrackingSnapshot) -> Int? {
-        guard snapshot.distanceMeters >= 1_000, snapshot.movingSeconds > 0 else { return nil }
-        return Int((Double(snapshot.movingSeconds) / snapshot.distanceMeters * targetMeters).rounded())
     }
 
     private func generatedTitle(for distanceMeters: Double) -> String {
@@ -305,6 +257,10 @@ struct DefaultRunSummaryBuilder: RunSummaryBuilding {
         formatter.dateFormat = "EEE, MMM d"
         return formatter
     }()
+
+    static func dateString(from date: Date) -> String {
+        dateFormatter.string(from: date)
+    }
 
     static func distanceString(meters: Double, unit: DistanceUnit) -> String {
         switch unit {
@@ -336,23 +292,5 @@ struct DefaultRunSummaryBuilder: RunSummaryBuilding {
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60
         return "\(minutes)'\(String(format: "%02d", remainingSeconds))\""
-    }
-
-    private static func parseDuration(from value: String) -> Int? {
-        let parts = value.split(separator: ":").compactMap { Int($0) }
-
-        switch parts.count {
-        case 2:
-            return parts[0] * 60 + parts[1]
-        case 3:
-            return parts[0] * 3_600 + parts[1] * 60 + parts[2]
-        default:
-            return nil
-        }
-    }
-
-    private static func parseDistanceKilometers(from value: String) -> Double? {
-        guard let number = Double(value.split(separator: " ").first ?? "") else { return nil }
-        return value.hasSuffix("km") ? number : nil
     }
 }
