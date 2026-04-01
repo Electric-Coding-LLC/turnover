@@ -83,17 +83,24 @@ struct TurnoverAppDependencies {
     let trackingService: any RunTrackingService
     let platformStatusProvider: any RunPlatformStatusProviding
 
-    static func local(fileManager: FileManager = .default) -> TurnoverAppDependencies {
-        let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: nil)
-        let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: nil)
+    static func local(
+        fileManager: FileManager = .default,
+        baseDirectory: URL? = nil,
+        trackingService: (any RunTrackingService)? = nil,
+        platformStatusProvider: (any RunPlatformStatusProviding)? = nil
+    ) -> TurnoverAppDependencies {
+        let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: baseDirectory)
+        let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: baseDirectory)
         let platformAdapter = CoreLocationRunTrackingService()
+        let resolvedTrackingService = trackingService ?? platformAdapter
+        let resolvedPlatformStatusProvider = platformStatusProvider ?? platformAdapter
 
         return TurnoverAppDependencies(
             settingsReader: settingsStore,
             historyReader: historyStore,
             finalizedRunWriter: historyStore,
-            trackingService: platformAdapter,
-            platformStatusProvider: platformAdapter
+            trackingService: resolvedTrackingService,
+            platformStatusProvider: resolvedPlatformStatusProvider
         )
     }
 

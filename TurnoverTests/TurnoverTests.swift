@@ -222,6 +222,81 @@ struct TurnoverTests {
         #expect(platformStatusProvider.openSettingsCallCount == 1)
     }
 
+    @Test func appStateLoadsPersistedSettingsAndHistoryFromLocalDependencies() async throws {
+        let directory = makeTemporaryDirectory()
+        let settingsStore = LocalSettingsStore(baseDirectory: directory)
+        let historyStore = LocalRunHistoryStore(baseDirectory: directory)
+        let persistedSettings = SettingsSnapshot(
+            distanceUnit: .miles,
+            splitUnit: .mile,
+            autoPauseEnabled: false,
+            zoneMethod: .percentOfMaxHeartRate,
+            maxHeartRate: 188,
+            version: "0.2.0"
+        )
+        let finalizedSession = makeFinishedSession(settings: persistedSettings.runSettings, startedAt: Date(timeIntervalSince1970: 84))
+
+        settingsStore.writeSettings(persistedSettings)
+        historyStore.writeFinalizedRun(
+            FinalizedRunPayload(
+                session: finalizedSession,
+                summary: StubRunSummaryBuilder().makeSummary(from: finalizedSession, history: [])
+            )
+        )
+
+        let appState = TurnoverAppState(
+            dependencies: TurnoverAppDependencies.local(
+                baseDirectory: directory,
+                trackingService: StubRunTrackingService(snapshot: .running),
+                platformStatusProvider: StubRunPlatformStatusProvider()
+            )
+        )
+
+        #expect(appState.settings.distanceUnit == .miles)
+        #expect(appState.settings.splitUnit == .mile)
+        #expect(appState.settings.autoPauseEnabled == false)
+        #expect(appState.runHistory.count == TurnoverSampleData.recentRuns.count + 1)
+        #expect(appState.latestCompletedRun?.title == "Built Run")
+        #expect(appState.historyMetrics.runCount == TurnoverSampleData.recentRuns.count + 1)
+        #expect(appState.historyMetrics.latestRunDistanceMeters == 5_000)
+    }
+
+    @Test func appStateFinishingRunPersistsHistoryBeforeMetricsRefresh() async throws {
+        let directory = makeTemporaryDirectory()
+        let trackingService = StubRunTrackingService(snapshot: .finished)
+        let platformStatusProvider = StubRunPlatformStatusProvider()
+        let appState = TurnoverAppState(
+            dependencies: TurnoverAppDependencies.local(
+                baseDirectory: directory,
+                trackingService: trackingService,
+                platformStatusProvider: platformStatusProvider
+            )
+        )
+
+        let baselineRunCount = appState.historyMetrics.runCount
+
+        appState.startRun()
+        appState.finishRun()
+
+        #expect(appState.runHistory.count == baselineRunCount + 1)
+        #expect(appState.historyMetrics.runCount == baselineRunCount + 1)
+        #expect(appState.historyMetrics.latestRunDistanceMeters == 5_000)
+        #expect(appState.latestCompletedRun?.title == "Steady Tempo Run")
+
+        let reloadedAppState = TurnoverAppState(
+            dependencies: TurnoverAppDependencies.local(
+                baseDirectory: directory,
+                trackingService: StubRunTrackingService(snapshot: .running),
+                platformStatusProvider: StubRunPlatformStatusProvider()
+            )
+        )
+
+        #expect(reloadedAppState.runHistory.count == baselineRunCount + 1)
+        #expect(reloadedAppState.latestCompletedRun?.title == "Steady Tempo Run")
+        #expect(reloadedAppState.historyMetrics.runCount == baselineRunCount + 1)
+        #expect(reloadedAppState.historyMetrics.latestRunDistanceMeters == 5_000)
+    }
+
     @Test func runPlatformStatusLiveStatusLabelReflectsAvailabilityAndPermissions() async throws {
         #expect(
             RunPlatformStatus(
@@ -395,4 +470,17 @@ private func makeTemporaryDirectory() -> URL {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     return directory
+}
+
+private func makeFinishedSession(
+    settings: RunSettings,
+    startedAt: Date,
+    id: UUID = UUID()
+) -> ActiveRunSession {
+    ActiveRunSession(
+        id: id,
+        startedAt: startedAt,
+        settings: settings,
+        snapshot: .finished
+    )
 }
