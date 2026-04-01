@@ -116,20 +116,35 @@ enum TurnoverSampleData {
     static let featuredRun = recentRuns[0]
 
     static let settings = SettingsSnapshot(
-        distanceUnit: "Kilometers",
-        splitUnit: "1 km",
+        distanceUnit: .kilometers,
+        splitUnit: .kilometer,
         autoPauseEnabled: true,
-        zoneMethod: "Percent of Max HR",
-        maxHeartRate: "190 bpm",
+        zoneMethod: .percentOfMaxHeartRate,
+        maxHeartRate: 190,
         version: "0.1.0"
     )
 }
 
 struct SettingsSnapshot {
-    let distanceUnit: String
-    let splitUnit: String
+    let distanceUnit: DistanceUnit
+    let splitUnit: SplitUnit
     let autoPauseEnabled: Bool
-    let zoneMethod: String
-    let maxHeartRate: String
+    let zoneMethod: HeartRateZoneMethod
+    let maxHeartRate: Int
     let version: String
+
+    var distanceUnitLabel: String { distanceUnit.label }
+    var splitUnitLabel: String { splitUnit.label }
+    var zoneMethodLabel: String { zoneMethod.label }
+    var maxHeartRateLabel: String { "\(maxHeartRate) bpm" }
+
+    var runSettings: RunSettings {
+        RunSettings(
+            distanceUnit: distanceUnit,
+            splitUnit: splitUnit,
+            autoPauseEnabled: autoPauseEnabled,
+            zoneMethod: zoneMethod,
+            maxHeartRate: maxHeartRate
+        )
+    }
 }
