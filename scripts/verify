@@ -12,7 +12,10 @@ test -f AGENTS.md
 test -f CLAUDE.md
 test -f docs/plan.md
 test -f docs/steps/1-purpose.md
-test -f docs/steps/2-git-repo.md
+test -f docs/steps/2-dev-env.md
+test -f docs/steps/3-xcode-project.md
+test -f docs/steps/4-data-model.md
+test -f docs/design/data-model.md
 
 git diff --check
 
