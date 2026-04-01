@@ -9,13 +9,29 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            HomeScreen()
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
+
+            LiveRunScreen()
+                .tabItem {
+                    Label("Run", systemImage: "figure.run")
+                }
+
+            HistoryScreen()
+                .tabItem {
+                    Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                }
+
+            SettingsScreen()
+                .tabItem {
+                    Label("Settings", systemImage: "slider.horizontal.3")
+                }
         }
-        .padding()
+        .preferredColorScheme(.dark)
+        .tint(TurnoverPalette.accent)
     }
 }
 
