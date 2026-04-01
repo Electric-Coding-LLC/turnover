@@ -30,17 +30,15 @@ struct TurnoverScreen<Content: View>: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    content
-                }
-                .padding(20)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                content
             }
-            .background(TurnoverPalette.background.ignoresSafeArea())
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(20)
         }
+        .background(TurnoverPalette.background.ignoresSafeArea())
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
