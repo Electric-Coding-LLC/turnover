@@ -89,6 +89,7 @@ struct LiveRunScreen: View {
     let onResumeRun: () -> Void
     let onFinishRun: () -> Void
     let onViewLatestRun: () -> Void
+    let onOpenSettings: () -> Void
 
     var body: some View {
         TurnoverScreen(title: "Live Run") {
@@ -112,19 +113,23 @@ struct LiveRunScreen: View {
     }
 
     private var idleRunContent: some View {
-        HeroSectionCard(
-            eyebrow: "Ready",
-            title: "Start a session from here or jump in from Home.",
-            subtitle: "Step 7 wires the run flow so the tab, session state, and summary route all behave like one app."
-        ) {
-            Button("Start Run", action: onStartRun)
-                .buttonStyle(PrimaryButtonStyle())
+        Group {
+            HeroSectionCard(
+                eyebrow: "Ready",
+                title: "Start a session from here or jump in from Home.",
+                subtitle: "Step 7 wires the run flow so the tab, session state, and summary route all behave like one app."
+            ) {
+                Button("Start Run", action: onStartRun)
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+
+            permissionRecoveryCard
         }
     }
 
     private func activeRunContent(session: ActiveRunSession, isPaused: Bool) -> some View {
         Group {
-            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: settings.autoPauseEnabled ? "Auto-pause ready" : platformStatus.liveStatusLabel) {
+            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: platformStatus.liveStatusLabel) {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(DefaultRunSummaryBuilder.durationString(seconds: session.snapshot.elapsedSeconds))
                         .font(.system(size: 52, weight: .bold, design: .rounded))
@@ -189,6 +194,8 @@ struct LiveRunScreen: View {
                     }
                 }
             }
+
+            permissionRecoveryCard
         }
     }
 
@@ -236,6 +243,22 @@ struct LiveRunScreen: View {
     private func paceValue(secondsPerSplit: Double?) -> String {
         guard let secondsPerSplit else { return "--" }
         return DefaultRunSummaryBuilder.compactDurationString(seconds: Int(secondsPerSplit.rounded()))
+    }
+
+    @ViewBuilder
+    private var permissionRecoveryCard: some View {
+        if platformStatus.canOpenSettings {
+            SectionCard(title: "Permissions", trailing: "Location") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Location access is denied. Open Settings to re-enable GPS tracking for live runs.")
+                        .font(.subheadline)
+                        .foregroundStyle(TurnoverPalette.textSecondary)
+
+                    Button("Open Settings", action: onOpenSettings)
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+            }
+        }
     }
 }
 
@@ -370,12 +393,31 @@ struct RunDetailScreen: View {
 
 struct SettingsScreen: View {
     let settings: SettingsSnapshot
+    let onUpdateSettings: (SettingsSnapshot) -> Void
 
     var body: some View {
         TurnoverScreen(title: "Settings") {
             SectionCard(title: "Units") {
-                SettingsRow(label: "Distance Unit", value: settings.distanceUnitLabel)
-                SettingsRow(label: "Split Unit", value: settings.splitUnitLabel)
+                PickerRow(
+                    label: "Distance Unit",
+                    identifier: "settings-distance-unit",
+                    selection: settings.distanceUnit,
+                    values: [.kilometers, .miles],
+                    title: \.label,
+                    onSelect: { selection in
+                        onUpdateSettings(settings.updating(distanceUnit: selection))
+                    }
+                )
+                PickerRow(
+                    label: "Split Unit",
+                    identifier: "settings-split-unit",
+                    selection: settings.splitUnit,
+                    values: [.kilometer, .mile],
+                    title: \.label,
+                    onSelect: { selection in
+                        onUpdateSettings(settings.updating(splitUnit: selection))
+                    }
+                )
             }
 
             SectionCard(title: "Run Behavior") {
@@ -383,14 +425,31 @@ struct SettingsScreen: View {
                     Text("Auto-Pause")
                         .foregroundStyle(TurnoverPalette.textPrimary)
                     Spacer()
-                    Text(settings.autoPauseEnabled ? "On" : "Off")
-                        .foregroundStyle(settings.autoPauseEnabled ? TurnoverPalette.accent : TurnoverPalette.textSecondary)
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { settings.autoPauseEnabled },
+                            set: { onUpdateSettings(settings.updating(autoPauseEnabled: $0)) }
+                        )
+                    )
+                    .labelsHidden()
+                    .tint(TurnoverPalette.accent)
+                    .accessibilityIdentifier("settings-auto-pause-toggle")
                 }
             }
 
             SectionCard(title: "Heart Rate") {
                 SettingsRow(label: "Zone Method", value: settings.zoneMethodLabel)
-                SettingsRow(label: "Max Heart Rate", value: settings.maxHeartRateLabel)
+                StepperRow(
+                    label: "Max Heart Rate",
+                    identifier: "settings-max-heart-rate",
+                    value: settings.maxHeartRate,
+                    range: 120...230,
+                    suffix: "bpm",
+                    onChange: { selection in
+                        onUpdateSettings(settings.updating(maxHeartRate: selection))
+                    }
+                )
             }
 
             SectionCard(title: "About") {
@@ -398,6 +457,53 @@ struct SettingsScreen: View {
                 SettingsRow(label: "Version", value: settings.version)
             }
         }
+    }
+}
+
+private struct PickerRow<Value: Hashable>: View {
+    let label: String
+    let identifier: String
+    let selection: Value
+    let values: [Value]
+    let title: KeyPath<Value, String>
+    let onSelect: (Value) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(label)
+                .foregroundStyle(TurnoverPalette.textPrimary)
+
+            Picker(label, selection: Binding(get: { selection }, set: onSelect)) {
+                ForEach(values, id: \.self) { value in
+                    Text(value[keyPath: title]).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier(identifier)
+        }
+    }
+}
+
+private struct StepperRow: View {
+    let label: String
+    let identifier: String
+    let value: Int
+    let range: ClosedRange<Int>
+    let suffix: String
+    let onChange: (Int) -> Void
+
+    var body: some View {
+        Stepper(value: Binding(get: { value }, set: onChange), in: range) {
+            HStack {
+                Text(label)
+                    .foregroundStyle(TurnoverPalette.textPrimary)
+                Spacer()
+                Text("\(value) \(suffix)")
+                    .foregroundStyle(TurnoverPalette.textSecondary)
+            }
+        }
+        .tint(TurnoverPalette.accent)
+        .accessibilityIdentifier(identifier)
     }
 }
 
@@ -580,7 +686,8 @@ struct RoutePreview: View {
         onPauseRun: {},
         onResumeRun: {},
         onFinishRun: {},
-        onViewLatestRun: {}
+        onViewLatestRun: {},
+        onOpenSettings: {}
     )
         .preferredColorScheme(.dark)
 }
@@ -610,6 +717,6 @@ struct RoutePreview: View {
 }
 
 #Preview("Settings") {
-    SettingsScreen(settings: TurnoverSampleData.settings)
+    SettingsScreen(settings: TurnoverSampleData.settings, onUpdateSettings: { _ in })
         .preferredColorScheme(.dark)
 }

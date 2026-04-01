@@ -22,3 +22,17 @@ Turnover is a personal iOS run tracker built as a Strava replacement for someone
 - No watchOS app
 - No training plans or coaching
 - No third-party integrations
+
+## Testing
+
+Use the shared Xcode schemes to keep normal verification scoped to the code that changed.
+
+- Default verification: `xcodebuild test -scheme Turnover-Unit -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4'`
+- UI flow verification: `xcodebuild test -scheme Turnover-UI -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4'`
+- Broad pre-merge pass: run both schemes instead of relying on the umbrella `Turnover` scheme
+
+Strategy:
+
+- Use `Turnover-Unit` for persistence, app-state, metrics, and domain logic changes
+- Use `Turnover-UI` only when changing navigation, screen behavior, or critical user flows
+- Avoid the default `Turnover` scheme as the routine path because it drags UI tests into every run

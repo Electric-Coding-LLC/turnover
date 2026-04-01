@@ -23,6 +23,10 @@ struct RunPlatformStatus: Equatable {
     let trackingAvailability: PlatformAvailabilityState
     let heartRateAvailability: PlatformAvailabilityState
 
+    var canOpenSettings: Bool {
+        trackingAuthorization == .denied
+    }
+
     var liveStatusLabel: String {
         if trackingAvailability == .unavailable {
             return "Tracking unavailable"
@@ -30,7 +34,11 @@ struct RunPlatformStatus: Equatable {
 
         switch trackingAuthorization {
         case .authorized:
-            return "GPS ready"
+            if heartRateAvailability == .available {
+                return "GPS + HR ready"
+            }
+
+            return "GPS ready, HR unavailable"
         case .notDetermined:
             return "Permissions pending"
         case .denied:
@@ -48,6 +56,10 @@ protocol RunSettingsReading {
     func readSettings() -> SettingsSnapshot
 }
 
+protocol RunSettingsWriting {
+    func writeSettings(_ settings: SettingsSnapshot)
+}
+
 protocol RunHistoryReading {
     func readRunHistory() -> [RunSummary]
 }
@@ -56,33 +68,80 @@ protocol FinalizedRunWriting {
     func writeFinalizedRun(_ payload: FinalizedRunPayload)
 }
 
-protocol RunPlatformStatusProviding {
+protocol RunPlatformStatusProviding: AnyObject {
+    var onStatusChange: ((RunPlatformStatus) -> Void)? { get set }
+
     func currentPlatformStatus() -> RunPlatformStatus
+    func refreshPlatformStatus()
+    func openSystemSettings()
 }
 
 struct TurnoverAppDependencies {
     let settingsReader: any RunSettingsReading
+    let settingsWriter: any RunSettingsWriting
     let historyReader: any RunHistoryReading
     let finalizedRunWriter: any FinalizedRunWriting
+    let trackingService: any RunTrackingService
     let platformStatusProvider: any RunPlatformStatusProviding
 
-    static func inMemory() -> TurnoverAppDependencies {
-        let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+    static func local(
+        fileManager: FileManager = .default,
+        baseDirectory: URL? = nil,
+        trackingService: (any RunTrackingService)? = nil,
+        platformStatusProvider: (any RunPlatformStatusProviding)? = nil
+    ) -> TurnoverAppDependencies {
+        let resolvedBaseDirectory = baseDirectory ?? persistenceBaseDirectoryOverride()
+        let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: resolvedBaseDirectory)
+        let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: resolvedBaseDirectory)
+        let platformAdapter = CoreLocationRunTrackingService()
+        let resolvedTrackingService = trackingService ?? platformAdapter
+        let resolvedPlatformStatusProvider = platformStatusProvider ?? platformAdapter
 
         return TurnoverAppDependencies(
-            settingsReader: InMemorySettingsStore(settings: TurnoverSampleData.settings),
+            settingsReader: settingsStore,
+            settingsWriter: settingsStore,
             historyReader: historyStore,
             finalizedRunWriter: historyStore,
-            platformStatusProvider: MockRunPlatformStatusProvider()
+            trackingService: resolvedTrackingService,
+            platformStatusProvider: resolvedPlatformStatusProvider
         )
+    }
+
+    static func inMemory() -> TurnoverAppDependencies {
+        let settingsStore = InMemorySettingsStore(settings: TurnoverSampleData.settings)
+        let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+        let platformStatusProvider = MockRunPlatformStatusProvider()
+
+        return TurnoverAppDependencies(
+            settingsReader: settingsStore,
+            settingsWriter: settingsStore,
+            historyReader: historyStore,
+            finalizedRunWriter: historyStore,
+            trackingService: MockRunTrackingService(),
+            platformStatusProvider: platformStatusProvider
+        )
+    }
+
+    private static func persistenceBaseDirectoryOverride() -> URL? {
+        let environment = ProcessInfo.processInfo.environment
+        guard let path = environment["TURNOVER_BASE_DIRECTORY"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
     }
 }
 
-struct InMemorySettingsStore: RunSettingsReading {
-    let settings: SettingsSnapshot
+final class InMemorySettingsStore: RunSettingsReading, RunSettingsWriting {
+    private var settings: SettingsSnapshot
+
+    init(settings: SettingsSnapshot) {
+        self.settings = settings
+    }
 
     func readSettings() -> SettingsSnapshot {
         settings
+    }
+
+    func writeSettings(_ settings: SettingsSnapshot) {
+        self.settings = settings
     }
 }
 
@@ -103,12 +162,28 @@ final class InMemoryRunHistoryStore: RunHistoryReading, FinalizedRunWriting {
     }
 }
 
-struct MockRunPlatformStatusProvider: RunPlatformStatusProviding {
-    func currentPlatformStatus() -> RunPlatformStatus {
-        RunPlatformStatus(
+final class MockRunPlatformStatusProvider: RunPlatformStatusProviding {
+    var onStatusChange: ((RunPlatformStatus) -> Void)?
+
+    private let status: RunPlatformStatus
+
+    init(
+        status: RunPlatformStatus = RunPlatformStatus(
             trackingAuthorization: .authorized,
             trackingAvailability: .available,
-            heartRateAvailability: .available
+            heartRateAvailability: .unavailable
         )
+    ) {
+        self.status = status
     }
+
+    func currentPlatformStatus() -> RunPlatformStatus {
+        status
+    }
+
+    func refreshPlatformStatus() {
+        onStatusChange?(status)
+    }
+
+    func openSystemSettings() {}
 }

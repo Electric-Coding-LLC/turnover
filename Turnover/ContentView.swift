@@ -8,10 +8,16 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var appState = TurnoverAppState()
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var appState: TurnoverAppState
     @State private var homePath: [RunSummary] = []
     @State private var historyPath: [RunSummary] = []
     @State private var runPath: [RunDestination] = []
+
+    @MainActor
+    init(appState: TurnoverAppState? = nil) {
+        _appState = StateObject(wrappedValue: appState ?? TurnoverAppState())
+    }
 
     var body: some View {
         TabView(selection: $appState.selectedTab) {
@@ -40,7 +46,8 @@ struct ContentView: View {
                     onPauseRun: appState.pauseRun,
                     onResumeRun: appState.resumeRun,
                     onFinishRun: finishRun,
-                    onViewLatestRun: showLatestCompletedRun
+                    onViewLatestRun: showLatestCompletedRun,
+                    onOpenSettings: appState.openPlatformSettings
                 )
                 .navigationDestination(for: RunDestination.self) { destination in
                     switch destination {
@@ -66,7 +73,10 @@ struct ContentView: View {
             .tag(TurnoverTab.history)
 
             NavigationStack {
-                SettingsScreen(settings: appState.settings)
+                SettingsScreen(
+                    settings: appState.settings,
+                    onUpdateSettings: appState.updateSettings
+                )
                 .tabItem {
                     Label("Settings", systemImage: "slider.horizontal.3")
                 }
@@ -75,6 +85,13 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .tint(TurnoverPalette.accent)
+        .task {
+            appState.refreshPlatformStatus()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            appState.refreshPlatformStatus()
+        }
     }
 
     private func startRun() {
@@ -101,5 +118,5 @@ private enum RunDestination: Hashable {
 }
 
 #Preview {
-    ContentView()
+    ContentView(appState: TurnoverAppState.preview())
 }

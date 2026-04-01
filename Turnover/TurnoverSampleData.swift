@@ -171,7 +171,7 @@ enum TurnoverSampleData {
     }
 }
 
-struct SettingsSnapshot {
+struct SettingsSnapshot: Equatable {
     let distanceUnit: DistanceUnit
     let splitUnit: SplitUnit
     let autoPauseEnabled: Bool
@@ -191,6 +191,23 @@ struct SettingsSnapshot {
             autoPauseEnabled: autoPauseEnabled,
             zoneMethod: zoneMethod,
             maxHeartRate: maxHeartRate
+        )
+    }
+
+    func updating(
+        distanceUnit: DistanceUnit? = nil,
+        splitUnit: SplitUnit? = nil,
+        autoPauseEnabled: Bool? = nil,
+        zoneMethod: HeartRateZoneMethod? = nil,
+        maxHeartRate: Int? = nil
+    ) -> SettingsSnapshot {
+        SettingsSnapshot(
+            distanceUnit: distanceUnit ?? self.distanceUnit,
+            splitUnit: splitUnit ?? self.splitUnit,
+            autoPauseEnabled: autoPauseEnabled ?? self.autoPauseEnabled,
+            zoneMethod: zoneMethod ?? self.zoneMethod,
+            maxHeartRate: maxHeartRate ?? self.maxHeartRate,
+            version: version
         )
     }
 }
