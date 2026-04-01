@@ -15,6 +15,7 @@ test -f docs/steps/1-purpose.md
 test -f docs/steps/2-dev-env.md
 test -f docs/steps/3-xcode-project.md
 test -f docs/steps/4-data-model.md
+test -f docs/steps/5-capabilities.md
 test -f docs/design/data-model.md
 
 git diff --check
