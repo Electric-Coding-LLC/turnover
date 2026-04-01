@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var appState: TurnoverAppState
     @State private var homePath: [RunSummary] = []
     @State private var historyPath: [RunSummary] = []
@@ -80,6 +81,13 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .tint(TurnoverPalette.accent)
+        .task {
+            appState.refreshPlatformStatus()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            appState.refreshPlatformStatus()
+        }
     }
 
     private func startRun() {

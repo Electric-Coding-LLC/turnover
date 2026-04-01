@@ -17,13 +17,14 @@ struct TurnoverTests {
         let summaryBuilder = StubRunSummaryBuilder()
         let metricsCalculator = DefaultRunMetricsCalculator()
         let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+        let platformStatusProvider = StubRunPlatformStatusProvider()
         let appState = TurnoverAppState(
             settings: TurnoverSampleData.settings,
             trackingService: trackingService,
             metricsCalculator: metricsCalculator,
             summaryBuilder: summaryBuilder,
             runHistory: historyStore.readRunHistory(),
-            platformStatus: MockRunPlatformStatusProvider().currentPlatformStatus(),
+            platformStatusProvider: platformStatusProvider,
             historyReader: historyStore,
             finalizedRunWriter: historyStore
         )
@@ -45,13 +46,14 @@ struct TurnoverTests {
     @Test func appStatePausesAndResumesActiveSession() async throws {
         let trackingService = StubRunTrackingService(snapshot: .running)
         let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+        let platformStatusProvider = StubRunPlatformStatusProvider()
         let appState = TurnoverAppState(
             settings: TurnoverSampleData.settings,
             trackingService: trackingService,
             metricsCalculator: DefaultRunMetricsCalculator(),
             summaryBuilder: StubRunSummaryBuilder(),
             runHistory: historyStore.readRunHistory(),
-            platformStatus: MockRunPlatformStatusProvider().currentPlatformStatus(),
+            platformStatusProvider: platformStatusProvider,
             historyReader: historyStore,
             finalizedRunWriter: historyStore
         )
@@ -153,6 +155,46 @@ struct TurnoverTests {
         #expect(persistedHistory.first?.title == "Built Run")
         #expect(persistedHistory.first?.distanceMeters == 5_000)
     }
+
+    @Test func appStateRefreshesPlatformStatusFromProvider() async throws {
+        let trackingService = StubRunTrackingService(snapshot: .running)
+        let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+        let platformStatusProvider = StubRunPlatformStatusProvider(
+            status: RunPlatformStatus(
+                trackingAuthorization: .notDetermined,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            )
+        )
+        let appState = TurnoverAppState(
+            settings: TurnoverSampleData.settings,
+            trackingService: trackingService,
+            metricsCalculator: DefaultRunMetricsCalculator(),
+            summaryBuilder: StubRunSummaryBuilder(),
+            runHistory: historyStore.readRunHistory(),
+            platformStatusProvider: platformStatusProvider,
+            historyReader: historyStore,
+            finalizedRunWriter: historyStore
+        )
+
+        #expect(appState.platformStatus.trackingAuthorization == .notDetermined)
+
+        platformStatusProvider.updateStatus(
+            RunPlatformStatus(
+                trackingAuthorization: .authorized,
+                trackingAvailability: .available,
+                heartRateAvailability: .unavailable
+            )
+        )
+
+        await Task.yield()
+
+        #expect(appState.platformStatus.trackingAuthorization == .authorized)
+
+        appState.refreshPlatformStatus()
+
+        #expect(platformStatusProvider.refreshCallCount == 1)
+    }
 }
 
 private final class StubRunTrackingService: RunTrackingService {
@@ -181,6 +223,37 @@ private final class StubRunTrackingService: RunTrackingService {
     }
 
     func stop() {}
+}
+
+private final class StubRunPlatformStatusProvider: RunPlatformStatusProviding {
+    var onStatusChange: ((RunPlatformStatus) -> Void)?
+
+    private(set) var refreshCallCount = 0
+    private var status: RunPlatformStatus
+
+    init(
+        status: RunPlatformStatus = RunPlatformStatus(
+            trackingAuthorization: .authorized,
+            trackingAvailability: .available,
+            heartRateAvailability: .unavailable
+        )
+    ) {
+        self.status = status
+    }
+
+    func currentPlatformStatus() -> RunPlatformStatus {
+        status
+    }
+
+    func refreshPlatformStatus() {
+        refreshCallCount += 1
+        onStatusChange?(status)
+    }
+
+    func updateStatus(_ status: RunPlatformStatus) {
+        self.status = status
+        onStatusChange?(status)
+    }
 }
 
 private struct StubRunSummaryBuilder: RunSummaryBuilding {

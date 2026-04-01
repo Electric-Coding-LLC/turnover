@@ -22,23 +22,24 @@ final class TurnoverAppState: ObservableObject {
     @Published private(set) var latestCompletedRun: RunSummary?
     @Published private(set) var runHistory: [RunSummary]
     @Published private(set) var historyMetrics: RunHistoryMetrics
+    @Published private(set) var platformStatus: RunPlatformStatus
 
     let settings: SettingsSnapshot
-    let platformStatus: RunPlatformStatus
 
-    private let trackingService: RunTrackingService
+    private let trackingService: any RunTrackingService
     private let metricsCalculator: any RunMetricsCalculating
     private let summaryBuilder: any RunSummaryBuilding
     private let historyReader: any RunHistoryReading
     private let finalizedRunWriter: any FinalizedRunWriting
+    private let platformStatusProvider: any RunPlatformStatusProviding
 
     init(
         settings: SettingsSnapshot,
-        trackingService: RunTrackingService,
+        trackingService: any RunTrackingService,
         metricsCalculator: any RunMetricsCalculating,
         summaryBuilder: any RunSummaryBuilding,
         runHistory: [RunSummary],
-        platformStatus: RunPlatformStatus,
+        platformStatusProvider: any RunPlatformStatusProviding,
         historyReader: any RunHistoryReading,
         finalizedRunWriter: any FinalizedRunWriting
     ) {
@@ -49,13 +50,20 @@ final class TurnoverAppState: ObservableObject {
         self.runHistory = runHistory
         self.latestCompletedRun = runHistory.first
         self.historyMetrics = metricsCalculator.summarizeHistory(runHistory, using: settings.runSettings, now: Date())
-        self.platformStatus = platformStatus
+        self.platformStatus = platformStatusProvider.currentPlatformStatus()
         self.historyReader = historyReader
         self.finalizedRunWriter = finalizedRunWriter
+        self.platformStatusProvider = platformStatusProvider
 
         trackingService.onSnapshot = { [weak self] snapshot in
             Task { @MainActor [weak self] in
                 self?.handle(snapshot: snapshot)
+            }
+        }
+
+        platformStatusProvider.onStatusChange = { [weak self] status in
+            Task { @MainActor [weak self] in
+                self?.platformStatus = status
             }
         }
     }
@@ -67,11 +75,11 @@ final class TurnoverAppState: ObservableObject {
 
         self.init(
             settings: settings,
-            trackingService: MockRunTrackingService(),
+            trackingService: dependencies.trackingService,
             metricsCalculator: metricsCalculator,
             summaryBuilder: DefaultRunSummaryBuilder(metricsCalculator: metricsCalculator),
             runHistory: dependencies.historyReader.readRunHistory(),
-            platformStatus: dependencies.platformStatusProvider.currentPlatformStatus(),
+            platformStatusProvider: dependencies.platformStatusProvider,
             historyReader: dependencies.historyReader,
             finalizedRunWriter: dependencies.finalizedRunWriter
         )
@@ -84,11 +92,11 @@ final class TurnoverAppState: ObservableObject {
 
         return TurnoverAppState(
             settings: settings,
-            trackingService: MockRunTrackingService(),
+            trackingService: dependencies.trackingService,
             metricsCalculator: metricsCalculator,
             summaryBuilder: DefaultRunSummaryBuilder(metricsCalculator: metricsCalculator),
             runHistory: dependencies.historyReader.readRunHistory(),
-            platformStatus: dependencies.platformStatusProvider.currentPlatformStatus(),
+            platformStatusProvider: dependencies.platformStatusProvider,
             historyReader: dependencies.historyReader,
             finalizedRunWriter: dependencies.finalizedRunWriter
         )
@@ -98,6 +106,7 @@ final class TurnoverAppState: ObservableObject {
         let startedAt = Date()
         let sessionID = UUID()
         selectedTab = .run
+        refreshPlatformStatus()
         trackingService.start(settings: settings.runSettings, startedAt: startedAt)
 
         let snapshot = trackingService.latestSnapshot ?? RunTrackingSnapshot(
@@ -158,6 +167,10 @@ final class TurnoverAppState: ObservableObject {
         runSession = .completed(run)
         historyMetrics = metricsCalculator.summarizeHistory(runHistory, using: settings.runSettings, now: Date())
         selectedTab = .run
+    }
+
+    func refreshPlatformStatus() {
+        platformStatusProvider.refreshPlatformStatus()
     }
 
     private func handle(snapshot: RunTrackingSnapshot) {

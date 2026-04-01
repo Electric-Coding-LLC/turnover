@@ -60,36 +60,44 @@ protocol FinalizedRunWriting {
     func writeFinalizedRun(_ payload: FinalizedRunPayload)
 }
 
-protocol RunPlatformStatusProviding {
+protocol RunPlatformStatusProviding: AnyObject {
+    var onStatusChange: ((RunPlatformStatus) -> Void)? { get set }
+
     func currentPlatformStatus() -> RunPlatformStatus
+    func refreshPlatformStatus()
 }
 
 struct TurnoverAppDependencies {
     let settingsReader: any RunSettingsReading
     let historyReader: any RunHistoryReading
     let finalizedRunWriter: any FinalizedRunWriting
+    let trackingService: any RunTrackingService
     let platformStatusProvider: any RunPlatformStatusProviding
 
     static func local(fileManager: FileManager = .default) -> TurnoverAppDependencies {
         let settingsStore = LocalSettingsStore(fileManager: fileManager, baseDirectory: nil)
         let historyStore = LocalRunHistoryStore(fileManager: fileManager, baseDirectory: nil)
+        let platformAdapter = CoreLocationRunTrackingService()
 
         return TurnoverAppDependencies(
             settingsReader: settingsStore,
             historyReader: historyStore,
             finalizedRunWriter: historyStore,
-            platformStatusProvider: MockRunPlatformStatusProvider()
+            trackingService: platformAdapter,
+            platformStatusProvider: platformAdapter
         )
     }
 
     static func inMemory() -> TurnoverAppDependencies {
         let historyStore = InMemoryRunHistoryStore(seedRuns: TurnoverSampleData.recentRuns)
+        let platformStatusProvider = MockRunPlatformStatusProvider()
 
         return TurnoverAppDependencies(
             settingsReader: InMemorySettingsStore(settings: TurnoverSampleData.settings),
             historyReader: historyStore,
             finalizedRunWriter: historyStore,
-            platformStatusProvider: MockRunPlatformStatusProvider()
+            trackingService: MockRunTrackingService(),
+            platformStatusProvider: platformStatusProvider
         )
     }
 }
@@ -121,12 +129,26 @@ final class InMemoryRunHistoryStore: RunHistoryReading, FinalizedRunWriting {
     }
 }
 
-struct MockRunPlatformStatusProvider: RunPlatformStatusProviding {
-    func currentPlatformStatus() -> RunPlatformStatus {
-        RunPlatformStatus(
+final class MockRunPlatformStatusProvider: RunPlatformStatusProviding {
+    var onStatusChange: ((RunPlatformStatus) -> Void)?
+
+    private let status: RunPlatformStatus
+
+    init(
+        status: RunPlatformStatus = RunPlatformStatus(
             trackingAuthorization: .authorized,
             trackingAvailability: .available,
             heartRateAvailability: .available
         )
+    ) {
+        self.status = status
+    }
+
+    func currentPlatformStatus() -> RunPlatformStatus {
+        status
+    }
+
+    func refreshPlatformStatus() {
+        onStatusChange?(status)
     }
 }
