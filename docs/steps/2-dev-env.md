@@ -1,4 +1,4 @@
-# Turnover - Step 2: Set Up Git Repo
+# Turnover - Step 2: Set Up Dev Environment
 
 ## Tasks
 
