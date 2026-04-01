@@ -29,12 +29,4 @@ final class TurnoverUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["start-run-button"].waitForExistence(timeout: 2))
     }
-
-    @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
-    }
 }

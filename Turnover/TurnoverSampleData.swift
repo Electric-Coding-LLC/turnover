@@ -8,19 +8,52 @@
 import Foundation
 
 struct RunSummary: Identifiable, Hashable {
-    let id = UUID()
+    let id: UUID
     let title: String
-    let date: String
-    let distance: String
-    let movingTime: String
-    let elapsedTime: String
-    let averagePace: String
-    let averageHeartRate: String
-    let elevationGain: String
+    let startedAt: Date
+    let distanceMeters: Double
+    let movingTimeSeconds: Int
+    let elapsedTimeSeconds: Int
+    let averagePaceSecondsPerSplit: Double?
+    let averageHeartRateBPM: Int?
+    let elevationGainMeters: Double
+    let distanceUnit: DistanceUnit
+    let splitUnit: SplitUnit
     let routeShape: [Double]
     let splits: [SplitSummary]
     let heartRateZones: [HeartRateZoneSummary]
     let personalRecord: String?
+
+    var date: String {
+        DefaultRunSummaryBuilder.dateString(from: startedAt)
+    }
+
+    var distance: String {
+        DefaultRunSummaryBuilder.distanceString(meters: distanceMeters, unit: distanceUnit)
+    }
+
+    var movingTime: String {
+        DefaultRunSummaryBuilder.durationString(seconds: movingTimeSeconds)
+    }
+
+    var elapsedTime: String {
+        DefaultRunSummaryBuilder.durationString(seconds: elapsedTimeSeconds)
+    }
+
+    var averagePace: String {
+        DefaultRunSummaryBuilder.paceString(
+            secondsPerSplit: averagePaceSecondsPerSplit,
+            splitUnit: splitUnit
+        )
+    }
+
+    var averageHeartRate: String {
+        averageHeartRateBPM.map { "\($0) bpm" } ?? "N/A"
+    }
+
+    var elevationGain: String {
+        "\(Int(elevationGainMeters.rounded())) m"
+    }
 }
 
 struct SplitSummary: Identifiable, Hashable {
@@ -40,14 +73,17 @@ struct HeartRateZoneSummary: Identifiable, Hashable {
 enum TurnoverSampleData {
     static let recentRuns: [RunSummary] = [
         RunSummary(
+            id: UUID(),
             title: "Morning Tempo",
-            date: "Tue, Mar 31",
-            distance: "8.42 km",
-            movingTime: "43:20",
-            elapsedTime: "45:12",
-            averagePace: "5'08\" /km",
-            averageHeartRate: "162 bpm",
-            elevationGain: "124 m",
+            startedAt: sampleDate(year: 2026, month: 3, day: 31),
+            distanceMeters: 8_420,
+            movingTimeSeconds: 2_600,
+            elapsedTimeSeconds: 2_712,
+            averagePaceSecondsPerSplit: 308,
+            averageHeartRateBPM: 162,
+            elevationGainMeters: 124,
+            distanceUnit: .kilometers,
+            splitUnit: .kilometer,
             routeShape: [0.25, 0.41, 0.55, 0.38, 0.63, 0.49, 0.72, 0.60, 0.78],
             splits: [
                 SplitSummary(label: "1 km", pace: "5'12\"", heartRate: "154"),
@@ -66,14 +102,17 @@ enum TurnoverSampleData {
             personalRecord: "New 10K best projection"
         ),
         RunSummary(
+            id: UUID(),
             title: "Easy Evening Run",
-            date: "Sun, Mar 29",
-            distance: "5.14 km",
-            movingTime: "29:58",
-            elapsedTime: "31:10",
-            averagePace: "5'50\" /km",
-            averageHeartRate: "148 bpm",
-            elevationGain: "42 m",
+            startedAt: sampleDate(year: 2026, month: 3, day: 29),
+            distanceMeters: 5_140,
+            movingTimeSeconds: 1_798,
+            elapsedTimeSeconds: 1_870,
+            averagePaceSecondsPerSplit: 350,
+            averageHeartRateBPM: 148,
+            elevationGainMeters: 42,
+            distanceUnit: .kilometers,
+            splitUnit: .kilometer,
             routeShape: [0.20, 0.30, 0.44, 0.51, 0.46, 0.56, 0.61, 0.58, 0.66],
             splits: [
                 SplitSummary(label: "1 km", pace: "5'55\"", heartRate: "141"),
@@ -89,14 +128,17 @@ enum TurnoverSampleData {
             personalRecord: nil
         ),
         RunSummary(
+            id: UUID(),
             title: "Long Saturday Run",
-            date: "Sat, Mar 28",
-            distance: "16.80 km",
-            movingTime: "1:31:42",
-            elapsedTime: "1:34:05",
-            averagePace: "5'27\" /km",
-            averageHeartRate: "156 bpm",
-            elevationGain: "210 m",
+            startedAt: sampleDate(year: 2026, month: 3, day: 28),
+            distanceMeters: 16_800,
+            movingTimeSeconds: 5_502,
+            elapsedTimeSeconds: 5_645,
+            averagePaceSecondsPerSplit: 327,
+            averageHeartRateBPM: 156,
+            elevationGainMeters: 210,
+            distanceUnit: .kilometers,
+            splitUnit: .kilometer,
             routeShape: [0.18, 0.28, 0.35, 0.48, 0.53, 0.57, 0.68, 0.74, 0.82],
             splits: [
                 SplitSummary(label: "1 km", pace: "5'35\"", heartRate: "144"),
@@ -116,20 +158,39 @@ enum TurnoverSampleData {
     static let featuredRun = recentRuns[0]
 
     static let settings = SettingsSnapshot(
-        distanceUnit: "Kilometers",
-        splitUnit: "1 km",
+        distanceUnit: .kilometers,
+        splitUnit: .kilometer,
         autoPauseEnabled: true,
-        zoneMethod: "Percent of Max HR",
-        maxHeartRate: "190 bpm",
+        zoneMethod: .percentOfMaxHeartRate,
+        maxHeartRate: 190,
         version: "0.1.0"
     )
+
+    private static func sampleDate(year: Int, month: Int, day: Int) -> Date {
+        Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? .distantPast
+    }
 }
 
 struct SettingsSnapshot {
-    let distanceUnit: String
-    let splitUnit: String
+    let distanceUnit: DistanceUnit
+    let splitUnit: SplitUnit
     let autoPauseEnabled: Bool
-    let zoneMethod: String
-    let maxHeartRate: String
+    let zoneMethod: HeartRateZoneMethod
+    let maxHeartRate: Int
     let version: String
+
+    var distanceUnitLabel: String { distanceUnit.label }
+    var splitUnitLabel: String { splitUnit.label }
+    var zoneMethodLabel: String { zoneMethod.label }
+    var maxHeartRateLabel: String { "\(maxHeartRate) bpm" }
+
+    var runSettings: RunSettings {
+        RunSettings(
+            distanceUnit: distanceUnit,
+            splitUnit: splitUnit,
+            autoPauseEnabled: autoPauseEnabled,
+            zoneMethod: zoneMethod,
+            maxHeartRate: maxHeartRate
+        )
+    }
 }

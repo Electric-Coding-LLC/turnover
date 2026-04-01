@@ -16,7 +16,11 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $appState.selectedTab) {
             NavigationStack(path: $homePath) {
-                HomeScreen(onStartRun: startRun)
+                HomeScreen(
+                    featuredRun: appState.runHistory.first,
+                    historyMetrics: appState.historyMetrics,
+                    onStartRun: startRun
+                )
                     .navigationDestination(for: RunSummary.self) { run in
                         RunDetailScreen(run: run)
                     }
@@ -28,8 +32,10 @@ struct ContentView: View {
 
             NavigationStack(path: $runPath) {
                 LiveRunScreen(
-                    sessionPhase: appState.runSessionPhase,
+                    runSession: appState.runSession,
                     latestCompletedRun: appState.latestCompletedRun,
+                    settings: appState.settings,
+                    platformStatus: appState.platformStatus,
                     onStartRun: startRun,
                     onPauseRun: appState.pauseRun,
                     onResumeRun: appState.resumeRun,
@@ -49,7 +55,7 @@ struct ContentView: View {
             .tag(TurnoverTab.run)
 
             NavigationStack(path: $historyPath) {
-                HistoryScreen()
+                HistoryScreen(runs: appState.runHistory, historyMetrics: appState.historyMetrics)
                     .navigationDestination(for: RunSummary.self) { run in
                         RunDetailScreen(run: run)
                     }
@@ -60,7 +66,7 @@ struct ContentView: View {
             .tag(TurnoverTab.history)
 
             NavigationStack {
-                SettingsScreen()
+                SettingsScreen(settings: appState.settings)
                 .tabItem {
                     Label("Settings", systemImage: "slider.horizontal.3")
                 }
@@ -77,9 +83,10 @@ struct ContentView: View {
     }
 
     private func finishRun() {
-        let completedRun = TurnoverSampleData.featuredRun
-        runPath = [.summary(completedRun)]
-        appState.finishRun(with: completedRun)
+        appState.finishRun()
+        if let completedRun = appState.latestCompletedRun {
+            runPath = [.summary(completedRun)]
+        }
     }
 
     private func showLatestCompletedRun() {
