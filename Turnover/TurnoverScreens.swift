@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct HomeScreen: View {
+    let onStartRun: () -> Void
     private let featuredRun = TurnoverSampleData.featuredRun
 
     var body: some View {
@@ -17,7 +18,7 @@ struct HomeScreen: View {
                 title: "Track the work. Skip the feed.",
                 subtitle: "Fast access to live tracking, recent volume, and the run data that matters."
             ) {
-                Button("Start Run") {}
+                Button("Start Run", action: onStartRun)
                     .buttonStyle(PrimaryButtonStyle())
                     .accessibilityIdentifier("start-run-button")
 
@@ -40,9 +41,7 @@ struct HomeScreen: View {
                 }
             }
 
-            NavigationLink {
-                RunDetailScreen(run: featuredRun)
-            } label: {
+            NavigationLink(value: featuredRun) {
                 SectionCard(title: "Latest Run", trailing: featuredRun.date) {
                     VStack(alignment: .leading, spacing: 14) {
                         Text(featuredRun.title)
@@ -73,11 +72,41 @@ struct HomeScreen: View {
 }
 
 struct LiveRunScreen: View {
-    @State private var isPaused = false
+    let sessionPhase: RunSessionPhase
+    let latestCompletedRun: RunSummary?
+    let onStartRun: () -> Void
+    let onPauseRun: () -> Void
+    let onResumeRun: () -> Void
+    let onFinishRun: () -> Void
+    let onViewLatestRun: () -> Void
 
     var body: some View {
         TurnoverScreen(title: "Live Run") {
-            SectionCard(title: isPaused ? "Paused" : "Active Run", trailing: "GPS strong") {
+            switch sessionPhase {
+            case .idle:
+                idleRunContent
+            case .active, .paused:
+                activeRunContent
+            case .completed:
+                completedRunContent
+            }
+        }
+    }
+
+    private var idleRunContent: some View {
+        HeroSectionCard(
+            eyebrow: "Ready",
+            title: "Start a session from here or jump in from Home.",
+            subtitle: "Step 7 wires the run flow so the tab, session state, and summary route all behave like one app."
+        ) {
+            Button("Start Run", action: onStartRun)
+                .buttonStyle(PrimaryButtonStyle())
+        }
+    }
+
+    private var activeRunContent: some View {
+        Group {
+            SectionCard(title: sessionPhase == .paused ? "Paused" : "Active Run", trailing: "GPS strong") {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("00:43:20")
                         .font(.system(size: 52, weight: .bold, design: .rounded))
@@ -107,25 +136,49 @@ struct LiveRunScreen: View {
             }
 
             SectionCard(title: "Controls") {
-                if isPaused {
+                if sessionPhase == .paused {
                     HStack(spacing: 12) {
-                        Button("Resume") {
-                            isPaused = false
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
+                        Button("Resume", action: onResumeRun)
+                            .buttonStyle(PrimaryButtonStyle())
 
-                        Button("Finish") {}
+                        Button("Finish", action: onFinishRun)
                             .buttonStyle(SecondaryButtonStyle())
                     }
                 } else {
                     HStack(spacing: 12) {
-                        Button("Pause") {
-                            isPaused = true
-                        }
+                        Button("Pause", action: onPauseRun)
+                            .buttonStyle(PrimaryButtonStyle())
+
+                        Button("Finish", action: onFinishRun)
+                            .buttonStyle(SecondaryButtonStyle())
+                    }
+                }
+            }
+        }
+    }
+
+    private var completedRunContent: some View {
+        Group {
+            HeroSectionCard(
+                eyebrow: "Complete",
+                title: "Run finished. Summary is ready.",
+                subtitle: "The live tab now owns the handoff from an active session into a saved run summary."
+            ) {
+                HStack(spacing: 12) {
+                    Button("View Summary", action: onViewLatestRun)
                         .buttonStyle(PrimaryButtonStyle())
 
-                        Button("Finish") {}
-                            .buttonStyle(SecondaryButtonStyle())
+                    Button("Start Another", action: onStartRun)
+                        .buttonStyle(SecondaryButtonStyle())
+                }
+            }
+
+            if let latestCompletedRun {
+                SectionCard(title: "Latest Completed Run", trailing: latestCompletedRun.date) {
+                    HStack(spacing: 12) {
+                        MetricColumn(label: "Distance", value: latestCompletedRun.distance)
+                        MetricColumn(label: "Pace", value: latestCompletedRun.averagePace)
+                        MetricColumn(label: "Moving", value: latestCompletedRun.movingTime)
                     }
                 }
             }
@@ -148,9 +201,7 @@ struct HistoryScreen: View {
             SectionCard(title: "Completed Runs", trailing: "No extras") {
                 VStack(spacing: 14) {
                     ForEach(runs) { run in
-                        NavigationLink {
-                            RunDetailScreen(run: run)
-                        } label: {
+                        NavigationLink(value: run) {
                             RunHistoryRow(run: run)
                         }
                         .buttonStyle(.plain)
@@ -432,17 +483,35 @@ struct RoutePreview: View {
 }
 
 #Preview("Home") {
-    HomeScreen()
+    NavigationStack {
+        HomeScreen(onStartRun: {})
+            .navigationDestination(for: RunSummary.self) { run in
+                RunDetailScreen(run: run)
+            }
+    }
         .preferredColorScheme(.dark)
 }
 
 #Preview("Live Run") {
-    LiveRunScreen()
+    LiveRunScreen(
+        sessionPhase: .active,
+        latestCompletedRun: TurnoverSampleData.featuredRun,
+        onStartRun: {},
+        onPauseRun: {},
+        onResumeRun: {},
+        onFinishRun: {},
+        onViewLatestRun: {}
+    )
         .preferredColorScheme(.dark)
 }
 
 #Preview("History") {
-    HistoryScreen()
+    NavigationStack {
+        HistoryScreen()
+            .navigationDestination(for: RunSummary.self) { run in
+                RunDetailScreen(run: run)
+            }
+    }
         .preferredColorScheme(.dark)
 }
 
