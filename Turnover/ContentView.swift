@@ -77,9 +77,9 @@ struct ContentView: View {
                     settings: appState.settings,
                     onUpdateSettings: appState.updateSettings
                 )
-                .tabItem {
-                    Label("Settings", systemImage: "slider.horizontal.3")
-                }
+            }
+            .tabItem {
+                Label("Settings", systemImage: "slider.horizontal.3")
             }
             .tag(TurnoverTab.settings)
         }

@@ -612,23 +612,37 @@ struct RoutePreview: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
+            let previewShape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+            let contentInset: CGFloat = 16
+            let strokeWidth: CGFloat = 6
+            let drawableMinX = contentInset + strokeWidth / 2
+            let drawableMaxX = width - contentInset - strokeWidth / 2
+            let drawableMinY = contentInset + strokeWidth / 2
+            let drawableMaxY = height - contentInset - strokeWidth / 2
+            let drawableWidth = max(drawableMaxX - drawableMinX, 0)
+            let drawableHeight = max(drawableMaxY - drawableMinY, 0)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                previewShape
                     .fill(TurnoverPalette.background)
 
                 Path { path in
                     guard let first = shape.first else { return }
 
-                    path.move(to: CGPoint(x: 0, y: height * (1 - first)))
+                    path.move(
+                        to: CGPoint(
+                            x: drawableMinX,
+                            y: drawableMinY + drawableHeight * (1 - first)
+                        )
+                    )
 
                     for (index, point) in shape.enumerated() {
-                        let x = width * CGFloat(index) / CGFloat(max(shape.count - 1, 1))
-                        let y = height * (1 - point)
+                        let x = drawableMinX + drawableWidth * CGFloat(index) / CGFloat(max(shape.count - 1, 1))
+                        let y = drawableMinY + drawableHeight * (1 - point)
                         path.addLine(to: CGPoint(x: x, y: y))
                     }
                 }
-                .strokedPath(.init(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                .strokedPath(.init(lineWidth: strokeWidth, lineCap: .round, lineJoin: .round))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [TurnoverPalette.accentMuted, TurnoverPalette.accent],
@@ -636,8 +650,8 @@ struct RoutePreview: View {
                         endPoint: .trailing
                     )
                 )
-                .padding(16)
             }
+            .clipShape(previewShape)
         }
     }
 }

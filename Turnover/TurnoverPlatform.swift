@@ -15,6 +15,7 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
     var onStatusChange: ((RunPlatformStatus) -> Void)?
 
     private let locationManager: CLLocationManager
+    private let platformStatusQueue = DispatchQueue(label: "com.electriccoding.turnover.platform-status")
 
     private var tickTimer: Timer?
     private var sessionStartDate: Date?
@@ -28,6 +29,7 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
     private var totalDistanceMeters: Double = 0
     private var totalElevationGainMeters: Double = 0
     private var latestPaceSecondsPerKilometer: Double?
+    private var trackingAvailability: PlatformAvailabilityState = .available
 
     override init() {
         let locationManager = CLLocationManager()
@@ -40,6 +42,7 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
         super.init()
 
         locationManager.delegate = self
+        refreshTrackingAvailability(reportChange: false)
     }
 
     deinit {
@@ -49,13 +52,13 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
     func currentPlatformStatus() -> RunPlatformStatus {
         RunPlatformStatus(
             trackingAuthorization: authorizationState,
-            trackingAvailability: trackingAvailabilityState,
+            trackingAvailability: trackingAvailability,
             heartRateAvailability: .unavailable
         )
     }
 
     func refreshPlatformStatus() {
-        onStatusChange?(currentPlatformStatus())
+        refreshTrackingAvailability(reportChange: true)
     }
 
     func openSystemSettings() {
@@ -130,17 +133,12 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
         }
     }
 
-    private var trackingAvailabilityState: PlatformAvailabilityState {
-        CLLocationManager.locationServicesEnabled() ? .available : .unavailable
-    }
-
     private var supportsBackgroundLocation: Bool {
         let backgroundModes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String]
         return backgroundModes?.contains("location") == true
     }
 
     private func requestAuthorizationIfNeeded() {
-        guard trackingAvailabilityState == .available else { return }
         guard locationManager.authorizationStatus == .notDetermined else { return }
 
         locationManager.requestWhenInUseAuthorization()
@@ -271,6 +269,23 @@ final class CoreLocationRunTrackingService: NSObject, RunTrackingService, RunPla
 
         routeLocations.append(location)
         self.lastLocation = location
+    }
+
+    private func refreshTrackingAvailability(reportChange: Bool) {
+        platformStatusQueue.async { [weak self] in
+            guard let self else { return }
+
+            let availability: PlatformAvailabilityState = CLLocationManager.locationServicesEnabled() ? .available : .unavailable
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.trackingAvailability = availability
+
+                if reportChange {
+                    self.onStatusChange?(self.currentPlatformStatus())
+                }
+            }
+        }
     }
 }
 
