@@ -158,8 +158,8 @@ enum TurnoverSampleData {
     static let featuredRun = recentRuns[0]
 
     static let settings = SettingsSnapshot(
-        distanceUnit: .kilometers,
-        splitUnit: .kilometer,
+        distanceUnit: .miles,
+        splitUnit: .mile,
         autoPauseEnabled: true,
         zoneMethod: .percentOfMaxHeartRate,
         maxHeartRate: 190,

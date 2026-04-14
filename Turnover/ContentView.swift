@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var appState: TurnoverAppState
-    @State private var homePath: [RunSummary] = []
+    @State private var statsPath: [RunSummary] = []
     @State private var historyPath: [RunSummary] = []
     @State private var runPath: [RunDestination] = []
 
@@ -21,10 +21,12 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $appState.selectedTab) {
-            NavigationStack(path: $homePath) {
-                HomeScreen(
+            NavigationStack(path: $statsPath) {
+                StatsScreen(
                     featuredRun: appState.runHistory.first,
                     historyMetrics: appState.historyMetrics,
+                    settings: appState.settings,
+                    onUpdateSettings: appState.updateSettings,
                     onStartRun: startRun
                 )
                     .navigationDestination(for: RunSummary.self) { run in
@@ -32,9 +34,9 @@ struct ContentView: View {
                     }
             }
             .tabItem {
-                Label("Home", systemImage: "house.fill")
+                Label("Stats", systemImage: "chart.bar.fill")
             }
-            .tag(TurnoverTab.home)
+            .tag(TurnoverTab.stats)
 
             NavigationStack(path: $runPath) {
                 LiveRunScreen(
@@ -77,9 +79,9 @@ struct ContentView: View {
                     settings: appState.settings,
                     onUpdateSettings: appState.updateSettings
                 )
-                .tabItem {
-                    Label("Settings", systemImage: "slider.horizontal.3")
-                }
+            }
+            .tabItem {
+                Label("Settings", systemImage: "slider.horizontal.3")
             }
             .tag(TurnoverTab.settings)
         }

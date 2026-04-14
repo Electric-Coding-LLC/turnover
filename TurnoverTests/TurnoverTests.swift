@@ -91,15 +91,16 @@ struct TurnoverTests {
         #expect(metrics.personalRecordCount == 2)
         #expect(metrics.weeklyDistanceMeters == 13_560)
         #expect(metrics.monthlyDistanceMeters == 30_360)
+        #expect(metrics.yearlyDistanceMeters == 30_360)
         #expect(metrics.latestRunDistanceMeters == 8_420)
-        #expect(metrics.personalRecords.map(\.label) == ["Mile", "5K"])
+        #expect(metrics.personalRecords.map(\.label) == ["400m", "800m", "1 Mile", "5K", "10K"])
     }
 
     @Test func localSettingsStoreReadsSeedAndPersistsWrites() async throws {
         let directory = makeTemporaryDirectory()
         let store = LocalSettingsStore(baseDirectory: directory)
 
-        #expect(store.readSettings().distanceUnit == .kilometers)
+        #expect(store.readSettings().distanceUnit == .miles)
 
         let updatedSettings = SettingsSnapshot(
             distanceUnit: .miles,

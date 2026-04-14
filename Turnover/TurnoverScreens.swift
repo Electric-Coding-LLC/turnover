@@ -7,40 +7,36 @@
 
 import SwiftUI
 
-struct HomeScreen: View {
+struct StatsScreen: View {
     let featuredRun: RunSummary?
     let historyMetrics: RunHistoryMetrics
+    let settings: SettingsSnapshot
+    let onUpdateSettings: (SettingsSnapshot) -> Void
     let onStartRun: () -> Void
+
+    private let personalRecordLabels = [
+        "400m",
+        "800m",
+        "1 Mile",
+        "5K",
+        "10K",
+        "Half Marathon",
+        "Marathon"
+    ]
 
     var body: some View {
         TurnoverScreen(title: "Turnover") {
-            HeroSectionCard(
-                eyebrow: "Ready",
-                title: "Track the work. Skip the feed.",
-                subtitle: "Fast access to live tracking, recent volume, and the run data that matters."
-            ) {
-                Button("Start Run", action: onStartRun)
-                    .buttonStyle(PrimaryButtonStyle())
-                    .accessibilityIdentifier("start-run-button")
-
-                HStack(spacing: 12) {
-                    MetricColumn(label: "Week", value: historyMetrics.weeklyDistanceSummary)
-                    MetricColumn(label: "Month", value: historyMetrics.monthlyDistanceSummary)
-                    MetricColumn(label: "Latest", value: historyMetrics.latestRunDistanceSummary)
-                }
-            }
-
-            SectionCard(title: "This Week", trailing: "7 days") {
-                HStack(spacing: 12) {
-                    MetricTile(label: "Mileage", value: historyMetrics.weeklyDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) logged", emphasis: .subdued)
-                    MetricTile(label: "Month", value: historyMetrics.monthlyDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) total", emphasis: .subdued)
-                }
-
-                HStack(spacing: 12) {
-                    MetricTile(label: "Latest", value: historyMetrics.latestRunDistanceValue, detail: "\(historyMetrics.distanceUnitLabel) latest", accent: TurnoverPalette.success, emphasis: .subdued)
-                    MetricTile(label: "PRs", value: "\(historyMetrics.personalRecordCount)", detail: "tagged runs", accent: TurnoverPalette.warning, emphasis: .subdued)
-                }
-            }
+            TotalsStripCard(
+                distanceUnit: settings.distanceUnit,
+                onSelectDistanceUnit: { selection in
+                    onUpdateSettings(settings.updating(distanceUnit: selection))
+                },
+                metrics: [
+                    .init(label: "Week", value: historyMetrics.weeklyDistanceValue),
+                    .init(label: "Month", value: historyMetrics.monthlyDistanceValue),
+                    .init(label: "YTD", value: historyMetrics.yearlyDistanceValue)
+                ]
+            )
 
             if let featuredRun {
                 NavigationLink(value: featuredRun) {
@@ -49,9 +45,6 @@ struct HomeScreen: View {
                             Text(featuredRun.title)
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(TurnoverPalette.textPrimary)
-
-                            RoutePreview(shape: featuredRun.routeShape)
-                                .frame(height: 88)
 
                             HStack(spacing: 12) {
                                 MetricColumn(label: "Distance", value: featuredRun.distance)
@@ -64,17 +57,31 @@ struct HomeScreen: View {
                 .buttonStyle(.plain)
             }
 
-            SectionCard(title: "Personal Records", trailing: "V1") {
-                VStack(spacing: 12) {
-                    ForEach(historyMetrics.personalRecords) { record in
-                        RecordRow(
+            SectionCard(title: "Personal Records") {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                    ForEach(personalRecordRows, id: \.label) { record in
+                        PersonalRecordTile(
                             label: record.label,
-                            value: DefaultRunSummaryBuilder.durationString(seconds: record.durationSeconds),
-                            detail: record.achievedOn
+                            value: record.value,
+                            detail: record.detail
                         )
                     }
                 }
             }
+        }
+    }
+
+    private var personalRecordRows: [(label: String, value: String, detail: String?)] {
+        personalRecordLabels.compactMap { label in
+            guard let record = historyMetrics.personalRecords.first(where: { $0.label == label }) else {
+                return nil
+            }
+
+            return (
+                label,
+                DefaultRunSummaryBuilder.durationString(seconds: record.durationSeconds),
+                record.achievedOn
+            )
         }
     }
 }
@@ -510,6 +517,7 @@ private struct StepperRow: View {
 struct MetricColumn: View {
     let label: String
     let value: String
+    var valueColor: Color = TurnoverPalette.textPrimary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -519,7 +527,7 @@ struct MetricColumn: View {
 
             Text(value)
                 .font(.headline)
-                .foregroundStyle(TurnoverPalette.textPrimary)
+                .foregroundStyle(valueColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -528,19 +536,136 @@ struct MetricColumn: View {
 struct RecordRow: View {
     let label: String
     let value: String
-    let detail: String
+    let detail: String?
 
     var body: some View {
         HStack {
             Text(label)
                 .foregroundStyle(TurnoverPalette.textPrimary)
+
             Spacer()
+
+            HStack(spacing: 8) {
+                Text(value)
+                    .font(.headline)
+                    .foregroundStyle(TurnoverPalette.textPrimary)
+                    .monospacedDigit()
+
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .foregroundStyle(TurnoverPalette.textSecondary)
+                }
+            }
+            .frame(minWidth: 140, alignment: .trailing)
+        }
+    }
+}
+
+struct PersonalRecordTile: View {
+    let label: String
+    let value: String
+    let detail: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(TurnoverPalette.warning)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
             Text(value)
                 .font(.headline)
                 .foregroundStyle(TurnoverPalette.textPrimary)
-            Text(detail)
+                .monospacedDigit()
+
+            if let detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(TurnoverPalette.textSecondary.opacity(0.8))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(TurnoverPalette.surfaceRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+struct TotalsStripCard: View {
+    let distanceUnit: DistanceUnit
+    let onSelectDistanceUnit: (DistanceUnit) -> Void
+    let metrics: [TotalsMetric]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                Text("Totals")
+                    .font(.headline)
+                    .foregroundStyle(TurnoverPalette.accent)
+
+                Spacer()
+
+                Picker(
+                    "Distance Unit",
+                    selection: Binding(get: { distanceUnit }, set: onSelectDistanceUnit)
+                ) {
+                    Text("km").tag(DistanceUnit.kilometers)
+                    Text("mi").tag(DistanceUnit.miles)
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .frame(width: 104)
+            }
+
+            HStack(spacing: 0) {
+                ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in
+                    if index > 0 {
+                        Capsule()
+                            .fill(TurnoverPalette.surfaceRaised)
+                            .frame(width: 1)
+                            .padding(.vertical, 8)
+                    }
+
+                    TotalsColumn(label: metric.label, value: metric.value)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(TurnoverPalette.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(TurnoverPalette.surfaceRaised, lineWidth: 1)
+        )
+    }
+}
+
+struct TotalsMetric {
+    let label: String
+    let value: String
+}
+
+struct TotalsColumn: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(spacing: 5) {
+            Text(value)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundStyle(TurnoverPalette.textPrimary)
+                .monospacedDigit()
+                .minimumScaleFactor(0.8)
+
+            Text(label)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(TurnoverPalette.textSecondary)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -612,23 +737,37 @@ struct RoutePreview: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             let height = geometry.size.height
+            let previewShape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+            let contentInset: CGFloat = 16
+            let strokeWidth: CGFloat = 6
+            let drawableMinX = contentInset + strokeWidth / 2
+            let drawableMaxX = width - contentInset - strokeWidth / 2
+            let drawableMinY = contentInset + strokeWidth / 2
+            let drawableMaxY = height - contentInset - strokeWidth / 2
+            let drawableWidth = max(drawableMaxX - drawableMinX, 0)
+            let drawableHeight = max(drawableMaxY - drawableMinY, 0)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                previewShape
                     .fill(TurnoverPalette.background)
 
                 Path { path in
                     guard let first = shape.first else { return }
 
-                    path.move(to: CGPoint(x: 0, y: height * (1 - first)))
+                    path.move(
+                        to: CGPoint(
+                            x: drawableMinX,
+                            y: drawableMinY + drawableHeight * (1 - first)
+                        )
+                    )
 
                     for (index, point) in shape.enumerated() {
-                        let x = width * CGFloat(index) / CGFloat(max(shape.count - 1, 1))
-                        let y = height * (1 - point)
+                        let x = drawableMinX + drawableWidth * CGFloat(index) / CGFloat(max(shape.count - 1, 1))
+                        let y = drawableMinY + drawableHeight * (1 - point)
                         path.addLine(to: CGPoint(x: x, y: y))
                     }
                 }
-                .strokedPath(.init(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                .strokedPath(.init(lineWidth: strokeWidth, lineCap: .round, lineJoin: .round))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [TurnoverPalette.accentMuted, TurnoverPalette.accent],
@@ -636,21 +775,23 @@ struct RoutePreview: View {
                         endPoint: .trailing
                     )
                 )
-                .padding(16)
             }
+            .clipShape(previewShape)
         }
     }
 }
 
-#Preview("Home") {
+#Preview("Stats") {
     NavigationStack {
-        HomeScreen(
+        StatsScreen(
             featuredRun: TurnoverSampleData.featuredRun,
             historyMetrics: DefaultRunMetricsCalculator().summarizeHistory(
                 TurnoverSampleData.recentRuns,
                 using: TurnoverSampleData.settings.runSettings,
                 now: TurnoverSampleData.featuredRun.startedAt
             ),
+            settings: TurnoverSampleData.settings,
+            onUpdateSettings: { _ in },
             onStartRun: {}
         )
             .navigationDestination(for: RunSummary.self) { run in

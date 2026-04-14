@@ -27,12 +27,14 @@ Turnover is a personal iOS run tracker built as a Strava replacement for someone
 
 Use the shared Xcode schemes to keep normal verification scoped to the code that changed.
 
-- Default verification: `xcodebuild test -scheme Turnover-Unit -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4'`
+- Default verification: `./scripts/verify-default.sh`
 - UI flow verification: `xcodebuild test -scheme Turnover-UI -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4'`
 - Broad pre-merge pass: run both schemes instead of relying on the umbrella `Turnover` scheme
+- Full simulator pass: `./scripts/verify-simulator-full.sh`
 
 Strategy:
 
 - Use `Turnover-Unit` for persistence, app-state, metrics, and domain logic changes
 - Use `Turnover-UI` only when changing navigation, screen behavior, or critical user flows
 - Avoid the default `Turnover` scheme as the routine path because it drags UI tests into every run
+- Run the full simulator pass serially; avoid launching both `xcodebuild test` commands in parallel against the same simulator destination

@@ -9,7 +9,7 @@ import Combine
 import Foundation
 
 enum TurnoverTab: Hashable {
-    case home
+    case stats
     case run
     case history
     case settings
@@ -17,7 +17,7 @@ enum TurnoverTab: Hashable {
 
 @MainActor
 final class TurnoverAppState: ObservableObject {
-    @Published var selectedTab: TurnoverTab = .home
+    @Published var selectedTab: TurnoverTab = .stats
     @Published private(set) var runSession: RunSessionState = .idle
     @Published private(set) var latestCompletedRun: RunSummary?
     @Published private(set) var runHistory: [RunSummary]

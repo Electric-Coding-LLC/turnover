@@ -258,8 +258,38 @@ struct DefaultRunSummaryBuilder: RunSummaryBuilding {
         return formatter
     }()
 
+    private static let longDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d, yyyy"
+        return formatter
+    }()
+
+    private static let mediumDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter
+    }()
+
+    private static let shortDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter
+    }()
+
     static func dateString(from date: Date) -> String {
         dateFormatter.string(from: date)
+    }
+
+    static func longDateString(from date: Date) -> String {
+        longDateFormatter.string(from: date)
+    }
+
+    static func mediumDateString(from date: Date) -> String {
+        mediumDateFormatter.string(from: date)
+    }
+
+    static func shortDateString(from date: Date) -> String {
+        shortDateFormatter.string(from: date)
     }
 
     static func distanceString(meters: Double, unit: DistanceUnit) -> String {
