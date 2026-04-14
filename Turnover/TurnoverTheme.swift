@@ -45,11 +45,13 @@ struct TurnoverScreen<Content: View>: View {
 struct SectionCard<Content: View>: View {
     let title: String
     let trailing: String?
+    let titleColor: Color
     let content: Content
 
-    init(title: String, trailing: String? = nil, @ViewBuilder content: () -> Content) {
+    init(title: String, trailing: String? = nil, titleColor: Color = TurnoverPalette.accent, @ViewBuilder content: () -> Content) {
         self.title = title
         self.trailing = trailing
+        self.titleColor = titleColor
         self.content = content()
     }
 
@@ -58,7 +60,7 @@ struct SectionCard<Content: View>: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(TurnoverPalette.textPrimary)
+                    .foregroundStyle(titleColor)
 
                 Spacer()
 
@@ -85,7 +87,7 @@ struct SectionCard<Content: View>: View {
 struct MetricTile: View {
     let label: String
     let value: String
-    let detail: String
+    let detail: String?
     var accent: Color = TurnoverPalette.accent
     var emphasis: MetricTileEmphasis = .regular
 
@@ -105,9 +107,11 @@ struct MetricTile: View {
                 .foregroundStyle(TurnoverPalette.textPrimary)
                 .minimumScaleFactor(0.7)
 
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(accent)
+            if let detail, !detail.isEmpty {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(accent)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

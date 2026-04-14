@@ -28,7 +28,8 @@ final class TurnoverUITests: XCTestCase {
         let app = makeApp()
         app.launch()
 
-        XCTAssertTrue(app.buttons["start-run-button"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Latest Run"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Personal Records"].exists)
     }
 
     @MainActor

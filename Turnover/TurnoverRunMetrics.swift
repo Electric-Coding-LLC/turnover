@@ -19,6 +19,7 @@ struct RunHistoryMetrics: Equatable {
     let preferredDistanceUnit: DistanceUnit
     let weeklyDistanceMeters: Double
     let monthlyDistanceMeters: Double
+    let yearlyDistanceMeters: Double
     let latestRunDistanceMeters: Double?
     let runCount: Int
     let personalRecordCount: Int
@@ -32,6 +33,10 @@ struct RunHistoryMetrics: Equatable {
         formattedDistance(meters: monthlyDistanceMeters, maximumFractionDigits: monthlyDistanceMeters >= 100_000 ? 0 : 1)
     }
 
+    var yearlyDistanceSummary: String {
+        formattedDistance(meters: yearlyDistanceMeters, maximumFractionDigits: yearlyDistanceMeters >= 100_000 ? 0 : 1)
+    }
+
     var latestRunDistanceSummary: String {
         guard let latestRunDistanceMeters else { return "--" }
         return formattedDistance(meters: latestRunDistanceMeters, maximumFractionDigits: 2)
@@ -43,6 +48,10 @@ struct RunHistoryMetrics: Equatable {
 
     var monthlyDistanceValue: String {
         formattedDistanceValue(meters: monthlyDistanceMeters, maximumFractionDigits: monthlyDistanceMeters >= 100_000 ? 0 : 1)
+    }
+
+    var yearlyDistanceValue: String {
+        formattedDistanceValue(meters: yearlyDistanceMeters, maximumFractionDigits: yearlyDistanceMeters >= 100_000 ? 0 : 1)
     }
 
     var latestRunDistanceValue: String {
@@ -147,6 +156,9 @@ struct DefaultRunMetricsCalculator: RunMetricsCalculating {
         let monthlyDistanceMeters = history
             .filter { calendar.isDate($0.startedAt, equalTo: now, toGranularity: .month) }
             .reduce(0) { $0 + $1.distanceMeters }
+        let yearlyDistanceMeters = history
+            .filter { calendar.isDate($0.startedAt, equalTo: now, toGranularity: .year) }
+            .reduce(0) { $0 + $1.distanceMeters }
         let personalRecords = recordTargets.compactMap { target in
             bestRecord(for: target, history: history)
         }
@@ -155,6 +167,7 @@ struct DefaultRunMetricsCalculator: RunMetricsCalculating {
             preferredDistanceUnit: settings.distanceUnit,
             weeklyDistanceMeters: weeklyDistanceMeters,
             monthlyDistanceMeters: monthlyDistanceMeters,
+            yearlyDistanceMeters: yearlyDistanceMeters,
             latestRunDistanceMeters: history.first?.distanceMeters,
             runCount: history.count,
             personalRecordCount: history.filter { $0.personalRecord != nil }.count,
@@ -164,8 +177,13 @@ struct DefaultRunMetricsCalculator: RunMetricsCalculating {
 
     private var recordTargets: [(label: String, distanceMeters: Double)] {
         [
-            ("Mile", 1_609.34),
-            ("5K", 5_000)
+            ("400m", 400),
+            ("800m", 800),
+            ("1 Mile", 1_609.34),
+            ("5K", 5_000),
+            ("10K", 10_000),
+            ("Half Marathon", 21_097.5),
+            ("Marathon", 42_195)
         ]
     }
 
@@ -176,7 +194,7 @@ struct DefaultRunMetricsCalculator: RunMetricsCalculating {
                 RunPersonalRecord(
                     label: target.label,
                     durationSeconds: Int((Double(run.movingTimeSeconds) / run.distanceMeters * target.distanceMeters).rounded()),
-                    achievedOn: run.date
+                    achievedOn: DefaultRunSummaryBuilder.shortDateString(from: run.startedAt)
                 )
             }
             .min { lhs, rhs in
