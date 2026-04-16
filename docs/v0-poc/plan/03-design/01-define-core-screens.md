@@ -8,7 +8,7 @@ Identify the minimum set of screens needed for the release.
 
 - The summary experience
 - The personal records experience
-- The run history experience
+- The runs experience
 - The run detail and editing experience
 
 ## Screen Principles
@@ -50,7 +50,7 @@ Must include:
 - a link from each PR result to the associated run
 - unit toggle for miles and kilometers
 - visible import or refresh affordance
-- a clear path to the full run-history view
+- a clear path to the full runs view
 
 Should also handle:
 
@@ -67,7 +67,7 @@ Reason to keep it:
 - Totals and PRs are core product needs and belong together in the default
   review surface.
 
-### 2. Run History Screen
+### 2. Runs Screen
 
 Purpose:
 
@@ -139,7 +139,7 @@ Reason to keep it:
 ## Minimum Screen Set
 
 - Summary
-- Run History
+- Runs
 - Run Detail
 
 ## Output
