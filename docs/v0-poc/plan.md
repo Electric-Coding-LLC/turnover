@@ -12,14 +12,14 @@ This release will be completed by working through these steps in order.
 
 | Step | Started | Completed |
 | --- | --- | --- |
-| [01-define-architecture](plan/02-architecture/01-define-architecture.md) |  |  |
-| [02-define-data-model](plan/02-architecture/02-define-data-model.md) |  |  |
+| [01-define-architecture](plan/02-architecture/01-define-architecture.md) | 2026-04-16 | 2026-04-16 |
+| [02-define-data-model](plan/02-architecture/02-define-data-model.md) | 2026-04-16 | 2026-04-16 |
 
 ## Design
 
 | Step | Started | Completed |
 | --- | --- | --- |
-| [01-define-core-screens](plan/03-design/01-define-core-screens.md) |  |  |
+| [01-define-core-screens](plan/03-design/01-define-core-screens.md) | 2026-04-16 | 2026-04-16 |
 | [02-define-navigation-flow](plan/03-design/02-define-navigation-flow.md) |  |  |
 | [03-define-main-ui-states](plan/03-design/03-define-main-ui-states.md) |  |  |
 
