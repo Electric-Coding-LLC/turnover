@@ -1,4 +1,4 @@
-# Needs
+# Goals
 
 ## Product Goal
 

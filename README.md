@@ -6,7 +6,7 @@ using Apple Health workout data.
 ## Current Status
 
 This repository is in early POC definition. The main product requirements live
-in [`docs/v0-poc/needs.md`](docs/v0-poc/needs.md).
+in [`docs/v0-poc/goals.md`](docs/v0-poc/goals.md).
 
 ## V0 Scope
 
