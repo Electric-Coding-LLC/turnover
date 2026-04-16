@@ -21,7 +21,7 @@ This release will be completed by working through these steps in order.
 | --- | --- | --- |
 | [01-define-core-screens](plan/03-design/01-define-core-screens.md) | 2026-04-16 | 2026-04-16 |
 | [02-define-navigation-flow](plan/03-design/02-define-navigation-flow.md) | 2026-04-16 | 2026-04-16 |
-| [03-define-main-ui-states](plan/03-design/03-define-main-ui-states.md) |  |  |
+| [03-define-main-ui-states](plan/03-design/03-define-main-ui-states.md) | 2026-04-16 | 2026-04-16 |
 
 ## Implementation
 
