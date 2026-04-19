@@ -5,8 +5,9 @@ using Apple Health workout data.
 
 ## Current Status
 
-This repository is in early POC definition. The main product requirements live
-in [`docs/v0-poc/goals.md`](docs/v0-poc/goals.md).
+This repository is in early POC definition. The current execution path and
+release requirements live in [`plans/v0-poc/EXECMAP.md`](plans/v0-poc/EXECMAP.md)
+and the repo-level plan index lives in [`PLAN.md`](PLAN.md).
 
 ## V0 Scope
 
